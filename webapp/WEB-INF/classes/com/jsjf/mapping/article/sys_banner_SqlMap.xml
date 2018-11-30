@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://www.mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.jsjf.dao.article.SysBannerDAO">
+	<resultMap id="SysBannerResult" type="com.jsjf.model.article.SysBanner">
+		<result column="id" property="id" jdbcType="BIGINT" />
+		<result column="img_url" property="imgUrl" jdbcType="VARCHAR" />
+		<result column="remark" property="remark" jdbcType="VARCHAR" />
+		<result column="title" property="title" jdbcType="VARCHAR" />
+		<result column="status" property="status" jdbcType="INTEGER" />
+		<result column="code" property="code" jdbcType="TINYINT" />
+		<result column="sort" property="sort" jdbcType="INTEGER" />
+		<result column="location" property="location" jdbcType="VARCHAR" />
+		<result column="color" property="color" jdbcType="VARCHAR" />
+		<result column="minVersion" property="minVersion" jdbcType="VARCHAR" />
+		<result column="startDate" property="startDate" jdbcType="TIMESTAMP" />
+		<result column="endDate" property="endDate" jdbcType="TIMESTAMP" />
+	</resultMap>
+
+	<select id="getSysBannerList" resultMap="SysBannerResult"
+		parameterType="java.util.HashMap">
+		select id, img_url, remark, title, status, code, sort, location, color,minVersion,startDate,endDate
+		from sys_banner where 1=1
+		<if test="title != null and title != ''">
+			and title like CONCAT('%','${title}','%' )
+		</if>
+		<if test="status != null">
+			<choose>
+				<when test="status == 1">
+					and now() >= startDate and endDate >= now() and status = 1
+				</when>
+				<otherwise>
+					and (now() > endDate or (startDate is null and endDate is null) or status = 0)
+				</otherwise>
+			</choose>
+		</if>
+		<if test="code != null and code != ''">
+			and code = #{code}
+		</if>
+		order by status DESC,code,id desc
+		<if test="offset != null">
+			limit #{offset},#{limit}
+		</if>
+	</select>
+
+	<select id="getSysBannerCounts" resultType="int" parameterType="java.util.HashMap">
+		SELECT count(1)
+		from sys_banner where 1=1
+		<if test="title != null and title != ''">
+			and title like CONCAT('%','${title}','%' )
+		</if>
+		<if test="status != null">
+			and status = #{status}
+		</if>
+		<if test="selectType != null">
+			<choose>
+				<when test="selectType == 1">
+					and now() >= startDate and endDate >= now() 
+				</when>
+				<otherwise>
+					and (now() > endDate or (startDate is null and endDate is null))
+				</otherwise>
+			</choose>
+		</if>
+		<if test="code != null and code != ''">
+			and code = #{code}
+		</if>
+	</select>
+	<select id="selectSysBannerById" resultMap="SysBannerResult"
+		parameterType="com.jsjf.model.article.SysBanner">
+		select id, img_url, remark, title, status, code, sort, location, color,minVersion,startDate,endDate
+		from sys_banner
+		where id = #{id:BIGINT}
+	</select>
+
+	<insert id="insertSysBanner" parameterType="com.jsjf.model.article.SysBanner">
+		insert into sys_banner (img_url, remark, title, code, sort, location,
+		color,minVersion,startDate,endDate)
+		values (#{imgUrl:VARCHAR}, #{remark:VARCHAR}, #{title:VARCHAR},
+		#{code:TINYINT}, #{sort:INTEGER}, #{location:VARCHAR},
+		#{color:VARCHAR},#{minVersion:VARCHAR},#{startDate},#{endDate})
+	</insert>
+
+	<update id="updateSysBannerById" parameterType="com.jsjf.model.article.SysBanner">
+		update sys_banner
+		<set>
+			<if test="imgUrl != null">
+				img_url = #{imgUrl:VARCHAR},
+			</if>
+			<if test="remark != null">
+				remark = #{remark:VARCHAR},
+			</if>
+			<if test="title != null">
+				title = #{title:VARCHAR},
+			</if>
+			<if test="status != null">
+				status = #{status:INTEGER},
+			</if>
+			<if test="code != null">
+				code = #{code:TINYINT},
+			</if>
+			<if test="sort != null">
+				sort = #{sort:INTEGER},
+			</if>
+			<if test="location != null">
+				location = #{location:VARCHAR},
+			</if>
+			<if test="color != null">
+				color = #{color:VARCHAR},
+			</if>
+			<if test="minVersion != null">
+				minVersion = #{minVersion:VARCHAR},
+			</if>
+			<if test="startDate != null">
+				startDate = #{startDate},
+			</if>
+			<if test="endDate != null">
+				endDate = #{endDate}
+			</if>
+		</set>
+		<where>
+			id = #{id:BIGINT}
+		</where>
+	</update>
+</mapper>

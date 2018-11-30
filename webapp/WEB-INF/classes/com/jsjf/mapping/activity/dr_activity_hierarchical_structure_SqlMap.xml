@@ -1,0 +1,1679 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://www.mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.jsjf.dao.activity.HierarchicalStructureDAO">
+		
+	<select id="selectHierarchicalStructure" resultType="java.util.Map" parameterType="java.util.Map"> 
+		select * from dr_activity_hierarchical_structure where valid=1
+		<if test="grade != null and grade != '' ">
+			and grade in
+			<foreach collection="grade" item="item" open="(" separator="," close=")">
+				#{item}
+			</foreach>
+		</if>
+		<if test="fid != null and fid != '' ">
+			and fid in
+			 <foreach collection="fid" item="item" open="(" separator="," close=")">
+				#{item}
+			</foreach>
+		</if>
+		<if test="id != null and id != '' ">
+			and id in
+			 <foreach collection="id" item="item" open="(" separator="," close=")">
+				#{item}
+			</foreach>
+		</if>
+	</select>
+	<!-- 查询优惠券明细 -->
+	<select id="selectCouponDetail" resultType="java.util.Map" parameterType="java.util.Map">
+		select * from 
+			(
+				SELECT DATE_FORMAT(c.investTime,'%Y-%m-%d %H:%i:%s') AS 'investTime',
+				dpi.simpleName as 'simpleName',ifnull(c.amount,0.00) as 'amount',
+				if(c.experience is null,(SELECT name from dr_activity_hierarchical_structure where id = dap.ahsId ),'体验金') as 'three_flag',
+				if(c.experience is null,(SELECT name from dr_activity_hierarchical_structure where id =
+					(SELECT fid from dr_activity_hierarchical_structure where id = dap.ahsId)),'体验金') as 'two_flag',
+				ifnull(sc.cnvalue,'非CPS') as toFromType,
+				if(dpi.project_no is not null,'存管','金运通') as 'project_no',
+				case dmf.type when 2 then dmf.raisedRates/36000 * c.amount * dpi.deadline
+				when 4 then (dmf.multiple*dpi.rate-dpi.rate)/36000 * c.amount * dpi.deadline
+				else ifnull(dmf.profitAmount,0.00) END as 'spend_amount'
+				from dr_product_invest c
+				LEFT JOIN dr_product_info dpi ON dpi.id = c.pid
+				LEFT JOIN dr_member_favourable dmf ON dmf.id = c.fid 
+				LEFT JOIN dr_activity_parameter dap ON dap.ID = dmf.activityId
+				LEFT JOIN dr_activity_hierarchical_structure dahs ON dahs.id = dap.ahsId
+				LEFT JOIN dr_member m ON m.uid = c.uid
+				LEFT JOIN dr_channel_info dci ON INSTR(m.toFrom,dci.code) = 1
+				Left join sys_chooseoption sc on sc.category='channelType' and sc.`code`= dci.type
+			<where>
+				and dpi.type != 5
+				<if test="startDate != null and startDate != '' ">
+					<![CDATA[ and DATE_FORMAT(c.investTime,'%Y-%m-%d') >= DATE_FORMAT(#{startDate},'%Y-%m-%d') ]]>
+				</if>
+				<if test="endDate != null and endDate != '' ">
+					<![CDATA[ and DATE_FORMAT(c.investTime,'%Y-%m-%d') <= DATE_FORMAT(#{endDate},'%Y-%m-%d') ]]>
+				</if>
+				<!-- 金运通 -->
+				<if test="project_no == 1 ">
+					and dpi.project_no is null
+				</if>
+				<!-- 存管 -->
+				<if test="project_no == 2 ">
+					and dpi.project_no is not null
+				</if>
+				<if test="channel != null and channel !=''">
+					and dci.type  = #{channel}
+				</if>
+				<if test="three_flag != null and three_flag !='' and three_flag != 29">
+					and dahs.id = #{three_flag}
+				</if>
+				<if test="two_flag != null and two_flag !='' and two_flag != 16 ">
+					and dahs.fid = #{two_flag}
+				</if>
+				<choose>
+					<when test="three_flag == 29 or two_flag ==16 ">
+						and c.experience is not null
+					</when>
+					<otherwise>
+						and c.fid is not null
+					</otherwise>
+				</choose>
+				<if test="simpleName !=null and simpleName != '' ">
+					and dpi.simpleName = #{simpleName}
+				</if>
+			</where>
+			
+			union all
+				SELECT DATE_FORMAT(c.investTime,'%Y-%m-%d %H:%i:%s') AS 'investTime',
+					dpi.simpleName as 'simpleName',ifnull(c.amount,0.00) as 'amount',
+					'体验金' as 'three_flag',
+					'体验金' as 'two_flag',
+					ifnull(sc.cnvalue,'非CPS') as toFromType,
+					IF(TIMESTAMPDIFF(DAY,'2017-06-06',DATE_FORMAT(c.investTime,'%Y-%m-%d')) <![CDATA[< ]]> 0,'金运通','存管') as 'project_no',
+					ifnull(c.interest,0.00)  as 'spend_amount'
+					from dr_product_invest c
+					LEFT JOIN dr_product_info dpi ON dpi.id = c.pid
+					LEFT JOIN dr_member m ON m.uid = c.uid
+					LEFT JOIN dr_channel_info dci ON INSTR(m.toFrom,dci.code) = 1
+					LEFT JOIN dr_product_invest_repayinfo dpir ON dpir.investId = c.id
+					Left join sys_chooseoption sc on sc.category='channelType' and sc.`code`= dci.type
+					<where>
+						and dpi.type = 5 
+						 <if test="startDate != null and startDate != '' ">
+							<![CDATA[ and DATE_FORMAT(c.investTime,'%Y-%m-%d') >= DATE_FORMAT(#{startDate},'%Y-%m-%d') ]]>
+						</if>
+						<if test="endDate != null and endDate != '' ">
+							<![CDATA[ and DATE_FORMAT(c.investTime,'%Y-%m-%d') <= DATE_FORMAT(#{endDate},'%Y-%m-%d') ]]>
+						</if>
+						<!-- 金运通 -->
+						<if test="project_no == 1 ">
+							and TIMESTAMPDIFF(DAY,'2017-06-06',DATE_FORMAT(c.investTime,'%Y-%m-%d')) <![CDATA[< ]]> 0
+						</if>
+						<!-- 存管 -->
+						<if test="project_no == 2 ">
+							and TIMESTAMPDIFF(DAY,'2017-06-06',DATE_FORMAT(c.investTime,'%Y-%m-%d')) >= 0
+						</if>
+						<if test="channel != null and channel !=''">
+							and dci.type  = #{channel}
+						</if>
+						<choose>
+							<when test="three_flag == 29 or two_flag ==16 ">
+								and c.experience is not null
+							</when>
+							<when test="two_flag !=null and two_flag != '' and two_flag != 16">
+								and c.fid is not null
+							</when>
+						</choose>
+						<if test="simpleName !=null and simpleName != '' ">
+							and dpi.simpleName = #{simpleName}
+						</if>
+					</where>
+					<!-- 周年庆 -->
+					union all					
+					SELECT DATE_FORMAT(c.investTime,'%Y-%m-%d %H:%i:%s') AS 'investTime',
+									dpi.simpleName as 'simpleName',dpi.amount as 'amount',
+									'活动现金' as 'three_flag', '复投返利' as 'two_flag',
+									if(dci.type =1,'cps','非CPS') as toFromType,
+									'存管' as 'project_no',jas.amount as 'spend_amount'
+					 from js_anniversary_share jas
+					LEFT JOIN dr_product_invest c ON jas.investId = c.id
+					LEFT JOIN dr_product_info dpi ON c.pid = dpi.id
+					LEFT JOIN dr_member dm ON dm.uid = c.uid
+					LEFT JOIN dr_channel_info dci ON INSTR(dm.toFrom,dci.code)=1
+					LEFT JOIN (SELECT 7 as fid,30 as id) dahs ON 1=1
+					
+					<where>
+						and dpi.type = 3
+						<if test="startDate != null and startDate != '' ">
+							<![CDATA[ and DATE_FORMAT(c.investTime,'%Y-%m-%d') >= DATE_FORMAT(#{startDate},'%Y-%m-%d') ]]>
+						</if>
+						<if test="endDate != null and endDate != '' ">
+							<![CDATA[ and DATE_FORMAT(c.investTime,'%Y-%m-%d') <= DATE_FORMAT(#{endDate},'%Y-%m-%d') ]]>
+						</if>
+						<!-- 金运通 -->
+						<if test="project_no == 1 ">
+							and dpi.project_no is null
+						</if>
+						<!-- 存管 -->
+						<if test="project_no == 2 ">
+							and dpi.project_no is not null
+						</if>
+						<if test="channel != null and channel !=''">
+							and dci.type  = #{channel}
+						</if>
+						<if test="three_flag != null and three_flag !='' and three_flag != 29">
+							and dahs.id = #{three_flag}
+						</if>
+						<if test="two_flag != null and two_flag !='' and two_flag != 16 ">
+							and dahs.fid = #{two_flag}
+						</if>						
+						<if test="simpleName !=null and simpleName != '' ">
+							and dpi.simpleName = #{simpleName}
+						</if>
+					</where>
+					<!-- 会员中心升级现金奖励 -->
+					<if test="project_no != 1">
+							union all	
+							select DATE_FORMAT(jrd.addDate,'%Y-%m-%d %H:%i:%s') AS 'investTime',
+							'' as 'simpleName','' as amount,
+							'升级现金' as 'three_flag',
+							'会员中心' as 'two_flag',
+							if(dci.type =1,'cps','非CPS') as toFromType,
+							'存管' as 'project_no',
+							jmr.amount as 'spend_amount'
+							from js_rewards_details jrd
+							left join js_member_rewards jmr on jmr.id=jrd.mrid
+							LEFT JOIN dr_member m ON m.uid =jrd.mid
+						LEFT JOIN dr_channel_info dci ON INSTR(m.toFrom,dci.code) = 1
+						Left join sys_chooseoption sc on sc.category='channelType' and sc.`code`= dci.type
+						LEFT JOIN (SELECT 31 as fid,33 as id) dahs ON 1=1			
+							<where>
+								and jmr.way=100 and jmr.type=1
+								<if test="startDate != null and startDate != '' ">
+									<![CDATA[ and DATE_FORMAT(jrd.addDate,'%Y-%m-%d') >= DATE_FORMAT(#{startDate},'%Y-%m-%d') ]]>
+								</if>
+								<if test="endDate != null and endDate != '' ">
+									<![CDATA[ and DATE_FORMAT(jrd.addDate,'%Y-%m-%d') <= DATE_FORMAT(#{endDate},'%Y-%m-%d') ]]>
+								</if>
+								<if test="channel != null and channel !=''">
+									and dci.type  = #{channel}
+								</if>
+								<if test="three_flag != null and three_flag !='' and three_flag != 29">
+									and dahs.id = #{three_flag}
+								</if>
+								<if test="two_flag != null and two_flag !='' and two_flag != 16 ">
+									and dahs.fid = #{two_flag}
+								</if>						
+							</where>
+					</if>
+					<!-- 双11返现金 -->
+					<if test="project_no != 1">
+							union all	
+							select DATE_FORMAT(jal.addTime,'%Y-%m-%d %H:%i:%s') AS 'investTime',
+							'' as 'simpleName','' as amount,
+							'活动现金' as 'three_flag',
+							'复投返利' as 'two_flag',
+							if(dci.type =1,'cps','非CPS') as toFromType,
+							'存管' as 'project_no',
+							jal.amount as 'spend_amount'
+							from js_activity_award_log jal
+							LEFT JOIN dr_member m ON m.uid =jal.uid
+							LEFT JOIN dr_channel_info dci ON INSTR(m.toFrom,dci.code) = 1
+							LEFT JOIN (SELECT 7 as fid,30 as id) dahs ON 1=1			
+							<where>
+								<if test="startDate != null and startDate != '' ">
+									<![CDATA[ and DATE_FORMAT(jal.addTime,'%Y-%m-%d') >= DATE_FORMAT(#{startDate},'%Y-%m-%d') ]]>
+								</if>
+								<if test="endDate != null and endDate != '' ">
+									<![CDATA[ and DATE_FORMAT(jal.addTime,'%Y-%m-%d') <= DATE_FORMAT(#{endDate},'%Y-%m-%d') ]]>
+								</if>
+								<if test="channel != null and channel !=''">
+									and dci.type  = #{channel}
+								</if>
+								<if test="three_flag != null and three_flag !='' and three_flag != 29">
+									and dahs.id = #{three_flag}
+								</if>
+								<if test="two_flag != null and two_flag !='' and two_flag != 16 ">
+									and dahs.fid = #{two_flag}
+								</if>						
+							</where>
+					</if>
+					) a
+					
+					order by a.investTime asc
+					<if test="offset != null">
+						limit #{offset},#{limit}
+					</if>
+	</select>
+	
+	<select id="selectCouponDetailCount" resultType="int" parameterType="java.util.Map">
+		SELECT COUNT(1)
+				from (
+				SELECT DATE_FORMAT(c.investTime,'%Y-%m-%d %H:%i:%s') AS 'investTime',
+				dpi.simpleName as 'simpleName',ifnull(c.amount,0.00) as 'amount',
+				if(c.experience is null,(SELECT name from dr_activity_hierarchical_structure where id = dap.ahsId ),'体验金') as 'three_flag',
+				if(c.experience is null,(SELECT name from dr_activity_hierarchical_structure where id =
+					(SELECT fid from dr_activity_hierarchical_structure where id = dap.ahsId)),'体验金') as 'two_flag',
+				ifnull(sc.cnvalue,'非CPS') as toFromType,
+				if(dpi.project_no is not null,'存管','金运通') as 'project_no',
+				case dmf.type when 2 then dmf.raisedRates/36000 * c.amount * dpi.deadline
+				when 4 then (dmf.multiple*dpi.rate-dpi.rate)/36000 * c.amount * dpi.deadline
+				else ifnull(dmf.profitAmount,0.00) END as 'spend_amount'
+				from dr_product_invest c
+				LEFT JOIN dr_product_info dpi ON dpi.id = c.pid
+				LEFT JOIN dr_member_favourable dmf ON dmf.id = c.fid 
+				LEFT JOIN dr_activity_parameter dap ON dap.ID = dmf.activityId
+				LEFT JOIN dr_activity_hierarchical_structure dahs ON dahs.id = dap.ahsId
+				LEFT JOIN dr_member m ON m.uid = c.uid
+				LEFT JOIN dr_channel_info dci ON INSTR(m.toFrom,dci.code) = 1
+				Left join sys_chooseoption sc on sc.category='channelType' and sc.`code`= dci.type
+			<where>
+				and dpi.type != 5
+				<if test="startDate != null and startDate != '' ">
+					<![CDATA[ and DATE_FORMAT(c.investTime,'%Y-%m-%d') >= DATE_FORMAT(#{startDate},'%Y-%m-%d') ]]>
+				</if>
+				<if test="endDate != null and endDate != '' ">
+					<![CDATA[ and DATE_FORMAT(c.investTime,'%Y-%m-%d') <= DATE_FORMAT(#{endDate},'%Y-%m-%d') ]]>
+				</if>
+				<!-- 金运通 -->
+				<if test="project_no == 1 ">
+					and dpi.project_no is null
+				</if>
+				<!-- 存管 -->
+				<if test="project_no == 2 ">
+					and dpi.project_no is not null
+				</if>
+				<if test="channel != null and channel !=''">
+					and dci.type  = #{channel}
+				</if>
+				<if test="three_flag != null and three_flag !='' and three_flag != 29">
+					and dahs.id = #{three_flag}
+				</if>
+				<if test="two_flag != null and two_flag !='' and two_flag != 16 ">
+					and dahs.fid = #{two_flag}
+				</if>
+				<choose>
+					<when test="three_flag == 29 or two_flag ==16 ">
+						and c.experience is not null
+					</when>
+					<otherwise>
+						and c.fid is not null
+					</otherwise>
+				</choose>
+				<if test="simpleName !=null and simpleName != '' ">
+					and dpi.simpleName = #{simpleName}
+				</if>
+			</where>
+			
+			union all
+				SELECT DATE_FORMAT(c.investTime,'%Y-%m-%d %H:%i:%s') AS 'investTime',
+					dpi.simpleName as 'simpleName',ifnull(c.amount,0.00) as 'amount',
+					'体验金' as 'three_flag',
+					'体验金' as 'two_flag',
+					ifnull(sc.cnvalue,'非CPS') as toFromType,
+					IF(TIMESTAMPDIFF(DAY,'2017-06-06',DATE_FORMAT(c.investTime,'%Y-%m-%d')) <![CDATA[< ]]> 0,'金运通','存管') as 'project_no',
+					ifnull(c.interest,0.00)  as 'spend_amount'
+					from dr_product_invest c
+					LEFT JOIN dr_product_info dpi ON dpi.id = c.pid
+					LEFT JOIN dr_member m ON m.uid = c.uid
+					LEFT JOIN dr_channel_info dci ON INSTR(m.toFrom,dci.code) = 1
+					LEFT JOIN dr_product_invest_repayinfo dpir ON dpir.investId = c.id
+					Left join sys_chooseoption sc on sc.category='channelType' and sc.`code`= dci.type
+					<where>
+						and dpi.type = 5 and c.experience is not null 
+						 <if test="startDate != null and startDate != '' ">
+							<![CDATA[ and DATE_FORMAT(c.investTime,'%Y-%m-%d') >= DATE_FORMAT(#{startDate},'%Y-%m-%d') ]]>
+						</if>
+						<if test="endDate != null and endDate != '' ">
+							<![CDATA[ and DATE_FORMAT(c.investTime,'%Y-%m-%d') <= DATE_FORMAT(#{endDate},'%Y-%m-%d') ]]>
+						</if>
+						<!-- 金运通 -->
+						<if test="project_no == 1 ">
+							and TIMESTAMPDIFF(DAY,'2017-06-06',DATE_FORMAT(c.investTime,'%Y-%m-%d')) <![CDATA[< ]]> 0
+						</if>
+						<!-- 存管 -->
+						<if test="project_no == 2 ">
+							and TIMESTAMPDIFF(DAY,'2017-06-06',DATE_FORMAT(c.investTime,'%Y-%m-%d')) >= 0
+						</if>
+						<if test="channel != null and channel !=''">
+							and dci.type  = #{channel}
+						</if>
+						<choose>
+							<when test="three_flag == 29 or two_flag ==16 ">
+								and c.experience is not null
+							</when>
+							<when test="two_flag !=null and two_flag != '' and two_flag != 16">
+								and c.fid is not null
+							</when>
+						</choose>
+						<if test="simpleName !=null and simpleName != '' ">
+							and dpi.simpleName = #{simpleName}
+						</if>
+					</where>
+					<!-- 周年庆 -->
+					union all					
+					SELECT DATE_FORMAT(c.investTime,'%Y-%m-%d %H:%i:%s') AS 'investTime',
+									dpi.simpleName as 'simpleName',dpi.amount as 'amount',
+									'活动现金' as 'three_flag', '复投返利' as 'two_flag',
+									if(dci.type =1,'cps','非CPS') as toFromType,
+									'存管' as 'project_no',jas.amount as 'spend_amount'
+					 from js_anniversary_share jas
+					LEFT JOIN dr_product_invest c ON jas.investId = c.id
+					LEFT JOIN dr_product_info dpi ON c.pid = dpi.id
+					LEFT JOIN dr_member dm ON dm.uid = c.uid
+					LEFT JOIN dr_channel_info dci ON INSTR(dm.toFrom,dci.code)=1
+					LEFT JOIN (SELECT 7 as fid,30 as id) dahs ON 1=1
+					
+						<where>
+						and dpi.type = 3
+						<if test="startDate != null and startDate != '' ">
+							<![CDATA[ and DATE_FORMAT(c.investTime,'%Y-%m-%d') >= DATE_FORMAT(#{startDate},'%Y-%m-%d') ]]>
+						</if>
+						<if test="endDate != null and endDate != '' ">
+							<![CDATA[ and DATE_FORMAT(c.investTime,'%Y-%m-%d') <= DATE_FORMAT(#{endDate},'%Y-%m-%d') ]]>
+						</if>
+						<!-- 金运通 -->
+						<if test="project_no == 1 ">
+							and dpi.project_no is null
+						</if>
+						<!-- 存管 -->
+						<if test="project_no == 2 ">
+							and dpi.project_no is not null
+						</if>
+						<if test="channel != null and channel !=''">
+							and dci.type  = #{channel}
+						</if>
+						<if test="three_flag != null and three_flag !='' and three_flag != 29">
+							and dahs.id = #{three_flag}
+						</if>
+						<if test="two_flag != null and two_flag !='' and two_flag != 16 ">
+							and dahs.fid = #{two_flag}
+						</if>						
+						<if test="simpleName !=null and simpleName != '' ">
+							and dpi.simpleName = #{simpleName}
+						</if>
+					</where>
+					<!-- 会员中心升级现金奖励 -->
+					<if test="project_no != 1">
+						union all	
+						select DATE_FORMAT(jrd.addDate,'%Y-%m-%d %H:%i:%s') AS 'investTime',
+						'' as 'simpleName','' as amount,
+						'升级现金' as 'three_flag',
+						'会员中心' as 'two_flag',
+						if(dci.type =1,'cps','非CPS') as toFromType,
+						'存管' as 'project_no',
+						jmr.amount as 'spend_amount'
+						from js_rewards_details jrd
+						left join js_member_rewards jmr on jmr.id=jrd.mrid
+						LEFT JOIN dr_member m ON m.uid =jrd.mid
+					LEFT JOIN dr_channel_info dci ON INSTR(m.toFrom,dci.code) = 1
+					Left join sys_chooseoption sc on sc.category='channelType' and sc.`code`= dci.type
+					LEFT JOIN (SELECT 31 as fid,33 as id) dahs ON 1=1			
+						<where>
+							and jmr.way=100 and jmr.type=1
+							<if test="startDate != null and startDate != '' ">
+								<![CDATA[ and DATE_FORMAT(jrd.addDate,'%Y-%m-%d') >= DATE_FORMAT(#{startDate},'%Y-%m-%d') ]]>
+							</if>
+							<if test="endDate != null and endDate != '' ">
+								<![CDATA[ and DATE_FORMAT(jrd.addDate,'%Y-%m-%d') <= DATE_FORMAT(#{endDate},'%Y-%m-%d') ]]>
+							</if>
+							<if test="channel != null and channel !=''">
+								and dci.type  = #{channel}
+							</if>
+							<if test="three_flag != null and three_flag !='' and three_flag != 29">
+								and dahs.id = #{three_flag}
+							</if>
+							<if test="two_flag != null and two_flag !='' and two_flag != 16 ">
+								and dahs.fid = #{two_flag}
+							</if>						
+						</where>
+					</if>
+					<!-- 双11返现金 -->
+					<if test="project_no != 1">
+							union all	
+							select DATE_FORMAT(jal.addTime,'%Y-%m-%d %H:%i:%s') AS 'investTime',
+							'' as 'simpleName','' as amount,
+							'活动现金' as 'three_flag',
+							'复投返利' as 'two_flag',
+							if(dci.type =1,'cps','非CPS') as toFromType,
+							'存管' as 'project_no',
+							jal.amount as 'spend_amount'
+							from js_activity_award_log jal
+							LEFT JOIN dr_member m ON m.uid =jal.uid
+							LEFT JOIN dr_channel_info dci ON INSTR(m.toFrom,dci.code) = 1
+							LEFT JOIN (SELECT 7 as fid,30 as id) dahs ON 1=1			
+							<where>
+								<if test="startDate != null and startDate != '' ">
+									<![CDATA[ and DATE_FORMAT(jal.addTime,'%Y-%m-%d') >= DATE_FORMAT(#{startDate},'%Y-%m-%d') ]]>
+								</if>
+								<if test="endDate != null and endDate != '' ">
+									<![CDATA[ and DATE_FORMAT(jal.addTime,'%Y-%m-%d') <= DATE_FORMAT(#{endDate},'%Y-%m-%d') ]]>
+								</if>
+								<if test="channel != null and channel !=''">
+									and dci.type  = #{channel}
+								</if>
+								<if test="three_flag != null and three_flag !='' and three_flag != 29">
+									and dahs.id = #{three_flag}
+								</if>
+								<if test="two_flag != null and two_flag !='' and two_flag != 16 ">
+									and dahs.fid = #{two_flag}
+								</if>						
+							</where>
+					</if>
+					) a
+	</select>
+
+	<select id="selectCouponDetailPageSum" resultType="java.util.Map" parameterType="java.util.Map">
+			select "本页统计" as investTime,sum(ifnull(a.amount,0)) as 'amount',sum(ifnull(a.spend_amount,0)) as 'spend_amount' from (
+				select * from (
+				SELECT DATE_FORMAT(c.investTime,'%Y-%m-%d %H:%i:%s') AS 'investTime',
+				dpi.simpleName as 'simpleName',ifnull(c.amount,0.00) as 'amount',
+				if(c.experience is null,(SELECT name from dr_activity_hierarchical_structure where id = dap.ahsId ),'体验金') as 'three_flag',
+				if(c.experience is null,(SELECT name from dr_activity_hierarchical_structure where id =
+					(SELECT fid from dr_activity_hierarchical_structure where id = dap.ahsId)),'体验金') as 'two_flag',
+				ifnull(sc.cnvalue,'非CPS') as toFromType,
+				if(dpi.project_no is not null,'存管','金运通') as 'project_no',
+				case dmf.type when 2 then dmf.raisedRates/36000 * c.amount * dpi.deadline
+				when 4 then (dmf.multiple*dpi.rate-dpi.rate)/36000 * c.amount * dpi.deadline
+				else ifnull(dmf.profitAmount,0.00) END as 'spend_amount'
+				from dr_product_invest c
+				LEFT JOIN dr_product_info dpi ON dpi.id = c.pid
+				LEFT JOIN dr_member_favourable dmf ON dmf.id = c.fid 
+				LEFT JOIN dr_activity_parameter dap ON dap.ID = dmf.activityId
+				LEFT JOIN dr_activity_hierarchical_structure dahs ON dahs.id = dap.ahsId
+				LEFT JOIN dr_member m ON m.uid = c.uid
+				LEFT JOIN dr_channel_info dci ON INSTR(m.toFrom,dci.code) = 1
+				Left join sys_chooseoption sc on sc.category='channelType' and sc.`code`= dci.type
+			<where>
+				and dpi.type != 5
+				<if test="startDate != null and startDate != '' ">
+					<![CDATA[ and DATE_FORMAT(c.investTime,'%Y-%m-%d') >= DATE_FORMAT(#{startDate},'%Y-%m-%d') ]]>
+				</if>
+				<if test="endDate != null and endDate != '' ">
+					<![CDATA[ and DATE_FORMAT(c.investTime,'%Y-%m-%d') <= DATE_FORMAT(#{endDate},'%Y-%m-%d') ]]>
+				</if>
+				<!-- 金运通 -->
+				<if test="project_no == 1 ">
+					and dpi.project_no is null
+				</if>
+				<!-- 存管 -->
+				<if test="project_no == 2 ">
+					and dpi.project_no is not null
+				</if>
+				<if test="channel != null and channel !=''">
+					and dci.type  = #{channel}
+				</if>
+				<if test="three_flag != null and three_flag !='' and three_flag != 29">
+					and dahs.id = #{three_flag}
+				</if>
+				<if test="two_flag != null and two_flag !='' and two_flag != 16 ">
+					and dahs.fid = #{two_flag}
+				</if>
+				<choose>
+					<when test="three_flag == 29 or two_flag ==16 ">
+						and c.experience is not null
+					</when>
+					<otherwise>
+						and c.fid is not null
+					</otherwise>
+				</choose>
+				<if test="simpleName !=null and simpleName != '' ">
+					and dpi.simpleName = #{simpleName}
+				</if>
+			</where>
+			
+			union all
+				SELECT DATE_FORMAT(c.investTime,'%Y-%m-%d %H:%i:%s') AS 'investTime',
+					dpi.simpleName as 'simpleName',ifnull(c.amount,0.00) as 'amount',
+					'体验金' as 'three_flag',
+					'体验金' as 'two_flag',
+					ifnull(sc.cnvalue,'非CPS') as toFromType,
+					IF(TIMESTAMPDIFF(DAY,'2017-06-06',DATE_FORMAT(c.investTime,'%Y-%m-%d')) <![CDATA[< ]]> 0,'金运通','存管') as 'project_no',
+					ifnull(c.interest,0.00)  as 'spend_amount'
+					from dr_product_invest c
+					LEFT JOIN dr_product_info dpi ON dpi.id = c.pid
+					LEFT JOIN dr_member m ON m.uid = c.uid
+					LEFT JOIN dr_channel_info dci ON INSTR(m.toFrom,dci.code) = 1
+					LEFT JOIN dr_product_invest_repayinfo dpir ON dpir.investId = c.id
+					Left join sys_chooseoption sc on sc.category='channelType' and sc.`code`= dci.type
+					<where>
+						and dpi.type = 5 and c.experience is not null 
+						 <if test="startDate != null and startDate != '' ">
+							<![CDATA[ and DATE_FORMAT(c.investTime,'%Y-%m-%d') >= DATE_FORMAT(#{startDate},'%Y-%m-%d') ]]>
+						</if>
+						<if test="endDate != null and endDate != '' ">
+							<![CDATA[ and DATE_FORMAT(c.investTime,'%Y-%m-%d') <= DATE_FORMAT(#{endDate},'%Y-%m-%d') ]]>
+						</if>
+						<!-- 金运通 -->
+						<if test="project_no == 1 ">
+							and TIMESTAMPDIFF(DAY,'2017-06-06',DATE_FORMAT(c.investTime,'%Y-%m-%d')) <![CDATA[< ]]> 0
+						</if>
+						<!-- 存管 -->
+						<if test="project_no == 2 ">
+							and TIMESTAMPDIFF(DAY,'2017-06-06',DATE_FORMAT(c.investTime,'%Y-%m-%d')) >= 0
+						</if>
+						<if test="channel != null and channel !=''">
+							and dci.type  = #{channel}
+						</if>
+						<choose>
+							<when test="three_flag == 29 or two_flag ==16 ">
+								and c.experience is not null
+							</when>
+							<when test="two_flag !=null and two_flag != '' and two_flag != 16">
+								and c.fid is not null
+							</when>
+						</choose>
+						<if test="simpleName !=null and simpleName != '' ">
+							and dpi.simpleName = #{simpleName}
+						</if>
+					</where>
+						<!-- 周年庆 -->
+					union all					
+					SELECT DATE_FORMAT(c.investTime,'%Y-%m-%d %H:%i:%s') AS 'investTime',
+									dpi.simpleName as 'simpleName',dpi.amount as 'amount',
+									'活动现金' as 'three_flag', '复投返利' as 'two_flag',
+									if(dci.type =1,'cps','非CPS') as toFromType,
+									'存管' as 'project_no',jas.amount as 'spend_amount'
+					 from js_anniversary_share jas
+					LEFT JOIN dr_product_invest c ON jas.investId = c.id
+					LEFT JOIN dr_product_info dpi ON c.pid = dpi.id
+					LEFT JOIN dr_member dm ON dm.uid = c.uid
+					LEFT JOIN dr_channel_info dci ON INSTR(dm.toFrom,dci.code)=1
+					LEFT JOIN (SELECT 7 as fid,30 as id) dahs ON 1=1
+					
+						<where>
+						and dpi.type = 3
+						<if test="startDate != null and startDate != '' ">
+							<![CDATA[ and DATE_FORMAT(c.investTime,'%Y-%m-%d') >= DATE_FORMAT(#{startDate},'%Y-%m-%d') ]]>
+						</if>
+						<if test="endDate != null and endDate != '' ">
+							<![CDATA[ and DATE_FORMAT(c.investTime,'%Y-%m-%d') <= DATE_FORMAT(#{endDate},'%Y-%m-%d') ]]>
+						</if>
+						<!-- 金运通 -->
+						<if test="project_no == 1 ">
+							and dpi.project_no is null
+						</if>
+						<!-- 存管 -->
+						<if test="project_no == 2 ">
+							and dpi.project_no is not null
+						</if>
+						<if test="channel != null and channel !=''">
+							and dci.type  = #{channel}
+						</if>
+						<if test="three_flag != null and three_flag !='' and three_flag != 29">
+							and dahs.id = #{three_flag}
+						</if>
+						<if test="two_flag != null and two_flag !='' and two_flag != 16 ">
+							and dahs.fid = #{two_flag}
+						</if>						
+						<if test="simpleName !=null and simpleName != '' ">
+							and dpi.simpleName = #{simpleName}
+						</if>
+					</where>
+					<!-- 会员中心升级现金奖励 -->
+					<if test="project_no != 1">
+						union all	
+						select DATE_FORMAT(jrd.addDate,'%Y-%m-%d %H:%i:%s') AS 'investTime',
+						'' as 'simpleName','' as amount,
+						'升级现金' as 'three_flag',
+						'会员中心' as 'two_flag',
+						if(dci.type =1,'cps','非CPS') as toFromType,
+						'存管' as 'project_no',
+						jmr.amount as 'spend_amount'
+						from js_rewards_details jrd
+						left join js_member_rewards jmr on jmr.id=jrd.mrid
+						LEFT JOIN dr_member m ON m.uid =jrd.mid
+					LEFT JOIN dr_channel_info dci ON INSTR(m.toFrom,dci.code) = 1
+					Left join sys_chooseoption sc on sc.category='channelType' and sc.`code`= dci.type
+					LEFT JOIN (SELECT 31 as fid,33 as id) dahs ON 1=1
+						<where>
+							and jmr.way=100 and jmr.type=1
+							<if test="startDate != null and startDate != '' ">
+								<![CDATA[ and DATE_FORMAT(jrd.addDate,'%Y-%m-%d') >= DATE_FORMAT(#{startDate},'%Y-%m-%d') ]]>
+							</if>
+							<if test="endDate != null and endDate != '' ">
+								<![CDATA[ and DATE_FORMAT(jrd.addDate,'%Y-%m-%d') <= DATE_FORMAT(#{endDate},'%Y-%m-%d') ]]>
+							</if>
+							<if test="channel != null and channel !=''">
+								and dci.type  = #{channel}
+							</if>
+							<if test="three_flag != null and three_flag !='' and three_flag != 29">
+								and dahs.id = #{three_flag}
+							</if>
+							<if test="two_flag != null and two_flag !='' and two_flag != 16 ">
+								and dahs.fid = #{two_flag}
+							</if>						
+						</where>
+					</if>	
+					<!-- 双11返现金 -->
+					<if test="project_no != 1">
+							union all	
+							select DATE_FORMAT(jal.addTime,'%Y-%m-%d %H:%i:%s') AS 'investTime',
+							'' as 'simpleName','' as amount,
+							'活动现金' as 'three_flag',
+							'复投返利' as 'two_flag',
+							if(dci.type =1,'cps','非CPS') as toFromType,
+							'存管' as 'project_no',
+							jal.amount as 'spend_amount'
+							from js_activity_award_log jal
+							LEFT JOIN dr_member m ON m.uid =jal.uid
+							LEFT JOIN dr_channel_info dci ON INSTR(m.toFrom,dci.code) = 1
+							LEFT JOIN (SELECT 7 as fid,30 as id) dahs ON 1=1			
+							<where>
+								<if test="startDate != null and startDate != '' ">
+									<![CDATA[ and DATE_FORMAT(jal.addTime,'%Y-%m-%d') >= DATE_FORMAT(#{startDate},'%Y-%m-%d') ]]>
+								</if>
+								<if test="endDate != null and endDate != '' ">
+									<![CDATA[ and DATE_FORMAT(jal.addTime,'%Y-%m-%d') <= DATE_FORMAT(#{endDate},'%Y-%m-%d') ]]>
+								</if>
+								<if test="channel != null and channel !=''">
+									and dci.type  = #{channel}
+								</if>
+								<if test="three_flag != null and three_flag !='' and three_flag != 29">
+									and dahs.id = #{three_flag}
+								</if>
+								<if test="two_flag != null and two_flag !='' and two_flag != 16 ">
+									and dahs.fid = #{two_flag}
+								</if>						
+							</where>
+					</if>
+					) b
+				order by b.investTime asc
+					limit #{offset},#{limit}) a 
+	</select>
+	<select id="selectCouponDetailSum" resultType="java.util.Map" parameterType="java.util.Map">
+			SELECT "总计" as investTime,sum(ifnull(a.amount,0)) as 'amount',
+			   sum(ifnull(a.spend_amount,0.00)) as 'spend_amount'
+				from (
+				SELECT DATE_FORMAT(c.investTime,'%Y-%m-%d %H:%i:%s') AS 'investTime',
+				dpi.simpleName as 'simpleName',ifnull(c.amount,0.00) as 'amount',
+				if(c.experience is null,(SELECT name from dr_activity_hierarchical_structure where id = dap.ahsId ),'体验金') as 'three_flag',
+				if(c.experience is null,(SELECT name from dr_activity_hierarchical_structure where id =
+					(SELECT fid from dr_activity_hierarchical_structure where id = dap.ahsId)),'体验金') as 'two_flag',
+				ifnull(sc.cnvalue,'非CPS') as toFromType,
+				if(dpi.project_no is not null,'存管','金运通') as 'project_no',
+				case dmf.type when 2 then dmf.raisedRates/36000 * c.amount * dpi.deadline
+				when 4 then (dmf.multiple*dpi.rate-dpi.rate)/36000 * c.amount * dpi.deadline
+				else ifnull(dmf.profitAmount,0.00) END as 'spend_amount'
+				from dr_product_invest c
+				LEFT JOIN dr_product_info dpi ON dpi.id = c.pid
+				LEFT JOIN dr_member_favourable dmf ON dmf.id = c.fid 
+				LEFT JOIN dr_activity_parameter dap ON dap.ID = dmf.activityId
+				LEFT JOIN dr_activity_hierarchical_structure dahs ON dahs.id = dap.ahsId
+				LEFT JOIN dr_member m ON m.uid = c.uid
+				LEFT JOIN dr_channel_info dci ON INSTR(m.toFrom,dci.code) = 1
+				Left join sys_chooseoption sc on sc.category='channelType' and sc.`code`= dci.type
+			<where>
+				and dpi.type != 5
+				<if test="startDate != null and startDate != '' ">
+					<![CDATA[ and DATE_FORMAT(c.investTime,'%Y-%m-%d') >= DATE_FORMAT(#{startDate},'%Y-%m-%d') ]]>
+				</if>
+				<if test="endDate != null and endDate != '' ">
+					<![CDATA[ and DATE_FORMAT(c.investTime,'%Y-%m-%d') <= DATE_FORMAT(#{endDate},'%Y-%m-%d') ]]>
+				</if>
+				<!-- 金运通 -->
+				<if test="project_no == 1 ">
+					and dpi.project_no is null
+				</if>
+				<!-- 存管 -->
+				<if test="project_no == 2 ">
+					and dpi.project_no is not null
+				</if>
+				<if test="channel != null and channel !=''">
+					and dci.type  = #{channel}
+				</if>
+				<if test="three_flag != null and three_flag !='' and three_flag != 29">
+					and dahs.id = #{three_flag}
+				</if>
+				<if test="two_flag != null and two_flag !='' and two_flag != 16 ">
+					and dahs.fid = #{two_flag}
+				</if>
+				<choose>
+					<when test="three_flag == 29 or two_flag ==16 ">
+						and c.experience is not null
+					</when>
+					<otherwise>
+						and c.fid is not null
+					</otherwise>
+				</choose>
+				<if test="simpleName !=null and simpleName != '' ">
+					and dpi.simpleName = #{simpleName}
+				</if>
+			</where>
+			
+			union all
+				SELECT DATE_FORMAT(c.investTime,'%Y-%m-%d %H:%i:%s') AS 'investTime',
+					dpi.simpleName as 'simpleName',ifnull(c.amount,0.00) as 'amount',
+					'体验金' as 'three_flag',
+					'体验金' as 'two_flag',
+					ifnull(sc.cnvalue,'非CPS') as toFromType,
+					IF(TIMESTAMPDIFF(DAY,'2017-06-06',DATE_FORMAT(c.investTime,'%Y-%m-%d')) <![CDATA[< ]]> 0,'金运通','存管') as 'project_no',
+					ifnull(c.interest,0.00)  as 'spend_amount'
+					from dr_product_invest c
+					LEFT JOIN dr_product_info dpi ON dpi.id = c.pid
+					LEFT JOIN dr_member m ON m.uid = c.uid
+					LEFT JOIN dr_channel_info dci ON INSTR(m.toFrom,dci.code) = 1
+					LEFT JOIN dr_product_invest_repayinfo dpir ON dpir.investId = c.id
+					Left join sys_chooseoption sc on sc.category='channelType' and sc.`code`= dci.type
+					<where>
+						and dpi.type = 5 and c.experience is not null 
+						 <if test="startDate != null and startDate != '' ">
+							<![CDATA[ and DATE_FORMAT(c.investTime,'%Y-%m-%d') >= DATE_FORMAT(#{startDate},'%Y-%m-%d') ]]>
+						</if>
+						<if test="endDate != null and endDate != '' ">
+							<![CDATA[ and DATE_FORMAT(c.investTime,'%Y-%m-%d') <= DATE_FORMAT(#{endDate},'%Y-%m-%d') ]]>
+						</if>
+						<!-- 金运通 -->
+						<if test="project_no == 1 ">
+							and TIMESTAMPDIFF(DAY,'2017-06-06',DATE_FORMAT(c.investTime,'%Y-%m-%d')) <![CDATA[< ]]> 0
+						</if>
+						<!-- 存管 -->
+						<if test="project_no == 2 ">
+							and TIMESTAMPDIFF(DAY,'2017-06-06',DATE_FORMAT(c.investTime,'%Y-%m-%d')) >= 0
+						</if>
+						<if test="channel != null and channel !=''">
+							and dci.type  = #{channel}
+						</if>
+						<choose>
+							<when test="three_flag == 29 or two_flag ==16 ">
+								and c.experience is not null
+							</when>
+							<when test="two_flag !=null and two_flag != '' and two_flag != 16">
+								and c.fid is not null
+							</when>
+						</choose>
+						<if test="simpleName !=null and simpleName != '' ">
+							and dpi.simpleName = #{simpleName}
+						</if>
+					</where>
+						<!-- 周年庆 -->
+					union all					
+					SELECT DATE_FORMAT(c.investTime,'%Y-%m-%d %H:%i:%s') AS 'investTime',
+									dpi.simpleName as 'simpleName',dpi.amount as 'amount',
+									'活动现金' as 'three_flag', '复投返利' as 'two_flag',
+									if(dci.type =1,'cps','非CPS') as toFromType,
+									'存管' as 'project_no',jas.amount as 'spend_amount'
+					 from js_anniversary_share jas
+					LEFT JOIN dr_product_invest c ON jas.investId = c.id
+					LEFT JOIN dr_product_info dpi ON c.pid = dpi.id
+					LEFT JOIN dr_member dm ON dm.uid = c.uid
+					LEFT JOIN dr_channel_info dci ON INSTR(dm.toFrom,dci.code)=1
+					LEFT JOIN (SELECT 7 as fid,30 as id) dahs ON 1=1
+					
+							<where>
+						and dpi.type = 3
+						<if test="startDate != null and startDate != '' ">
+							<![CDATA[ and DATE_FORMAT(c.investTime,'%Y-%m-%d') >= DATE_FORMAT(#{startDate},'%Y-%m-%d') ]]>
+						</if>
+						<if test="endDate != null and endDate != '' ">
+							<![CDATA[ and DATE_FORMAT(c.investTime,'%Y-%m-%d') <= DATE_FORMAT(#{endDate},'%Y-%m-%d') ]]>
+						</if>
+						<!-- 金运通 -->
+						<if test="project_no == 1 ">
+							and dpi.project_no is null
+						</if>
+						<!-- 存管 -->
+						<if test="project_no == 2 ">
+							and dpi.project_no is not null
+						</if>
+						<if test="channel != null and channel !=''">
+							and dci.type  = #{channel}
+						</if>
+						<if test="three_flag != null and three_flag !='' and three_flag != 29">
+							and dahs.id = #{three_flag}
+						</if>
+						<if test="two_flag != null and two_flag !='' and two_flag != 16 ">
+							and dahs.fid = #{two_flag}
+						</if>						
+						<if test="simpleName !=null and simpleName != '' ">
+							and dpi.simpleName = #{simpleName}
+						</if>
+					</where>
+					<!-- 会员中心升级现金奖励 -->
+					<if test="project_no != 1">
+						union all	
+						select DATE_FORMAT(jrd.addDate,'%Y-%m-%d %H:%i:%s') AS 'investTime',
+						'' as 'simpleName','' as amount,
+						'升级现金' as 'three_flag',
+						'会员中心' as 'two_flag',
+						if(dci.type =1,'cps','非CPS') as toFromType,
+						'存管' as 'project_no',
+						jmr.amount as 'spend_amount'
+						from js_rewards_details jrd
+						left join js_member_rewards jmr on jmr.id=jrd.mrid
+						LEFT JOIN dr_member m ON m.uid =jrd.mid
+					LEFT JOIN dr_channel_info dci ON INSTR(m.toFrom,dci.code) = 1
+					Left join sys_chooseoption sc on sc.category='channelType' and sc.`code`= dci.type
+					LEFT JOIN (SELECT 31 as fid,33 as id) dahs ON 1=1			
+						<where>
+							and jmr.way=100 and jmr.type=1
+							<if test="startDate != null and startDate != '' ">
+								<![CDATA[ and DATE_FORMAT(jrd.addDate,'%Y-%m-%d') >= DATE_FORMAT(#{startDate},'%Y-%m-%d') ]]>
+							</if>
+							<if test="endDate != null and endDate != '' ">
+								<![CDATA[ and DATE_FORMAT(jrd.addDate,'%Y-%m-%d') <= DATE_FORMAT(#{endDate},'%Y-%m-%d') ]]>
+							</if>
+							<if test="channel != null and channel !=''">
+								and dci.type  = #{channel}
+							</if>
+							<if test="three_flag != null and three_flag !='' and three_flag != 29">
+								and dahs.id = #{three_flag}
+							</if>
+							<if test="two_flag != null and two_flag !='' and two_flag != 16 ">
+								and dahs.fid = #{two_flag}
+							</if>						
+						</where>
+					</if>
+					<!-- 双11返现金 -->
+					<if test="project_no != 1">
+							union all	
+							select DATE_FORMAT(jal.addTime,'%Y-%m-%d %H:%i:%s') AS 'investTime',
+							'' as 'simpleName','' as amount,
+							'活动现金' as 'three_flag',
+							'复投返利' as 'two_flag',
+							if(dci.type =1,'cps','非CPS') as toFromType,
+							'存管' as 'project_no',
+							jal.amount as 'spend_amount'
+							from js_activity_award_log jal
+							LEFT JOIN dr_member m ON m.uid =jal.uid
+							LEFT JOIN dr_channel_info dci ON INSTR(m.toFrom,dci.code) = 1
+							LEFT JOIN (SELECT 7 as fid,30 as id) dahs ON 1=1			
+							<where>
+								<if test="startDate != null and startDate != '' ">
+									<![CDATA[ and DATE_FORMAT(jal.addTime,'%Y-%m-%d') >= DATE_FORMAT(#{startDate},'%Y-%m-%d') ]]>
+								</if>
+								<if test="endDate != null and endDate != '' ">
+									<![CDATA[ and DATE_FORMAT(jal.addTime,'%Y-%m-%d') <= DATE_FORMAT(#{endDate},'%Y-%m-%d') ]]>
+								</if>
+								<if test="channel != null and channel !=''">
+									and dci.type  = #{channel}
+								</if>
+								<if test="three_flag != null and three_flag !='' and three_flag != 29">
+									and dahs.id = #{three_flag}
+								</if>
+								<if test="two_flag != null and two_flag !='' and two_flag != 16 ">
+									and dahs.fid = #{two_flag}
+								</if>						
+							</where>
+					</if>
+					) a
+				order by a.investTime asc
+	</select>
+
+	<!-- 预算列表 -->
+	<select id="getActivityBudget" resultType="java.util.Map" parameterType="java.util.Map">
+	SELECT #{budgetTime} as budgetTime,#{computeTime} as computeTime,ta.* FROM (
+		<!-- 周年庆 -->
+		SELECT a.oneType,a.oneTypeName,a.twoType,a.twoTypeName,a.threeType,a.threeTypeName,a.amount,a.budgetAmount,a.type from (
+			SELECT 3 as oneType,'优惠券返利' as oneTypeName,
+				7 as twoType,'复投返利 ' as twoTypeName, 
+				30 as threeType,'活动现金' as threeTypeName,
+				TRUNCATE(SUM(amount),2) AS amount,TRUNCATE(SUM(amount)/4*1.05,2) as budgetAmount,'系统发放' as type
+				from js_anniversary_share 
+				<where>
+					<if test="computeStartTime != null and computeStartTime != '' ">
+						 and DATE_FORMAT(addtime,'%Y-%m-%d') >= #{computeStartTime} 
+					</if>
+					<if test="computeEndTime != null and computeEndTime != '' ">
+						 and #{computeEndTime}>=DATE_FORMAT(addtime,'%Y-%m-%d')
+					</if>
+				</where>
+			)a where a.amount
+			UNION all
+		<!--邀请好友三重礼-->
+		SELECT 
+			1 as oneType,'邀请' as oneTypeName,
+			4 as twoType,'邀请有好礼' as twoTypeName,
+			CASE isRepeat WHEN 0 THEN 10 ELSE 11 end as threeType,CASE isRepeat WHEN 0 THEN '邀请首投奖励' ELSE '邀请复投奖励' end as threeTypeName,
+			TRUNCATE(SUM(amount),2) AS amount,TRUNCATE(SUM(amount)/4*1.05,2) as budgetAmount,'系统发放' as type
+			FROM js_activity_member_account WHERE 1=1
+			<if test="computeStartTime != null and computeStartTime != '' ">
+				 and DATE_FORMAT(addDate,'%Y-%m-%d') >= #{computeStartTime} 
+			</if>
+			<if test="computeEndTime != null and computeEndTime != '' ">
+				 and #{computeEndTime}>=DATE_FORMAT(addDate,'%Y-%m-%d')
+			</if>
+		GROUP BY isRepeat
+		UNION all
+		<!-- 平台存管/金运通贴息 -->
+		<!-- TODO未确定什么时候上 -->
+		SELECT t.oneType,t.oneTypeName,t.twoType,t.twoTypeName,t.threeType,t.threeTypeName,TRUNCATE(sum(amount),2) as amount,TRUNCATE(SUM(amount)/4*1.05,2) as budgetAmount,'系统发放' as type FROM 
+			(SELECT 
+			2 as oneType,'贴息' as oneTypeName,
+			5 as twoType,'回款营销收益' as twoTypeName,
+			CASE project_no WHEN 'jzh' THEN 13 ELSE 14 END AS threeType,
+			CASE project_no WHEN 'jzh' THEN '平台存管贴息' ELSE '平台金运通贴息' END AS threeTypeName,
+			dpir.platformInterest AS amount,
+			CASE project_no WHEN 'jzh' THEN '存管' 
+			ELSE '金运通' END AS channel
+			FROM dr_product_invest i 
+			LEFT JOIN dr_product_info p ON i.pid = p.id 
+			LEFT JOIN dr_member_favourable f ON i.fid = f.id
+			LEFT JOIN dr_product_invest_repayinfo dpir ON i.id =dpir.investId  
+			WHERE i.`status` != 2 AND (p.type =2 or p.type =3) and p.status in(8,9)
+			<if test="computeStartTime != null and computeStartTime != '' ">
+				 and DATE_FORMAT(dpir.shouldTime,'%Y-%m-%d') >= #{computeStartTime} 
+			</if>
+			<if test="computeEndTime != null and computeEndTime != '' ">
+				 and #{computeEndTime}>=DATE_FORMAT(dpir.shouldTime,'%Y-%m-%d')
+			</if>
+			)t
+		GROUP BY t.threeType
+		UNION all
+		<!--平台未满标贴息-->
+		SELECT t.oneType,t.oneTypeName,t.twoType,t.twoTypeName,t.threeType,t.threeTypeName,TRUNCATE(sum(t.amount),2) as amount,TRUNCATE(SUM(t.amount)/4*1.05,2) as budgetAmount,'系统发放' as type FROM 
+			(SELECT 
+				2 as oneType,'贴息' as oneTypeName,
+				5 as twoType,'回款营销收益' as twoTypeName,
+				12 as threeType,'平台未满标贴息' as threeTypeName,
+				dpir.interestSubsidy AS amount
+				FROM dr_product_invest i 
+				LEFT JOIN dr_product_info p ON i.pid = p.id 
+				LEFT JOIN dr_member_favourable f ON i.fid = f.id
+				LEFT JOIN dr_product_invest_repayinfo dpir ON i.id =dpir.investId 
+				WHERE i.status != 2 AND p.type =2 and p.status in(8,9)
+				<if test="computeStartTime != null and computeStartTime != '' ">
+					 and DATE_FORMAT(dpir.shouldTime,'%Y-%m-%d') >= #{computeStartTime} 
+				</if>
+				<if test="computeEndTime != null and computeEndTime != '' ">
+					 and #{computeEndTime}>=DATE_FORMAT(dpir.shouldTime,'%Y-%m-%d')
+				</if>
+			)t
+		group by t.threeType
+		UNION all
+		<!--优惠券 -红包-->
+				SELECT 
+				3 as oneType,
+				'优惠券返利' as oneTypeName,
+				hs2.id as twoType,
+				hs2.name as twoTypeName,
+				hs1.id as threeType,
+				hs1.name as threeTypeName,
+				TRUNCATE(sum(dmf.profitAmount),2) as amount,TRUNCATE(SUM(dmf.profitAmount)/4*1.05,2) as budgetAmount,
+				CASE dmf.source when 2 then '活动发放' when 1 then '电销发放'  else '系统发放' end as type					
+				from dr_product_invest c			
+				LEFT JOIN dr_member_favourable dmf ON dmf.id = c.fid and dmf.`status` = 1 and dmf.type in (1,3)
+				LEFT JOIN dr_activity_parameter dap ON dap.ID = dmf.activityId	
+				left join dr_activity_hierarchical_structure hs1 on hs1.id=dap.ahsid 
+				left join dr_activity_hierarchical_structure hs2 on hs2.id=hs1.fid 
+				left join dr_activity_hierarchical_structure hs3 on hs3.id=hs2.fid
+				where c.fid and dmf.id
+					<if test="computeStartTime != null and computeStartTime != '' ">
+					and DATE_FORMAT(c.investTime,'%Y-%m-%d')>= #{computeStartTime} 
+					</if>
+					<if test="computeEndTime != null and computeEndTime != '' ">
+					 and #{computeEndTime} >=DATE_FORMAT(c.investTime,'%Y-%m-%d') 
+					</if>
+					GROUP BY hs1.id
+			UNION ALL
+			<!--优惠券 -体验金-->
+			SELECT a.oneType,a.oneTypeName,a.twoType,a.twoTypeName,a.threeType,a.threeTypeName,a.amount,a.budgetAmount,a.type from (
+				SELECT 
+				3 as oneType,
+				'优惠券返利' as oneTypeName,
+				16 as twoType,
+				'体验金' as twoTypeName,
+				29 as threeType,
+				'体验金' as threeTypeName,
+				TRUNCATE(sum(c.interest),2) as amount,TRUNCATE(SUM(c.interest)/4*1.05,2) as budgetAmount,
+				'系统发放' as type					
+				from dr_product_invest c			
+				where c.experience
+					<if test="computeStartTime != null and computeStartTime != '' ">
+						and DATE_FORMAT(c.investTime,'%Y-%m-%d')= #{computeStartTime} 
+					</if>
+					<if test="computeEndTime != null and computeEndTime != '' ">
+					 and #{computeEndTime}  >=DATE_FORMAT(c.investTime,'%Y-%m-%d') 
+					</if>
+			)a where a.amount
+			UNION ALL 
+			<!--优惠券 -加息和返现-->
+				SELECT 
+				3 as oneType,
+				'优惠券返利' as oneTypeName,
+				hs2.id as twoType,
+				hs2.name as twoTypeName,
+				hs1.id as threeType,
+				hs1.name as threeTypeName,				
+				TRUNCATE(sum(if(dmf.type =2,dpr.interestRateCoupon,dpr.interestDoubleCoupons)),2) as amount,
+				TRUNCATE(SUM(if(dmf.type =2,dpr.interestRateCoupon,dpr.interestDoubleCoupons))/4*1.05,2) as budgetAmount,
+				CASE dmf.source when 2 then '活动发放' when 1 then '电销发放'  else '系统发放' end as type				
+				from dr_product_invest c			
+				LEFT JOIN dr_product_invest_repayinfo dpr on c.id = dpr.investId
+				LEFT JOIN dr_member_favourable dmf ON dmf.id = c.fid and dmf.`status` = 1 and dmf.type in (2,4)
+				LEFT JOIN dr_activity_parameter dap ON dap.ID = dmf.activityId	
+				left join dr_activity_hierarchical_structure hs1 on hs1.id=dap.ahsid 
+				left join dr_activity_hierarchical_structure hs2 on hs2.id=hs1.fid 
+				left join dr_activity_hierarchical_structure hs3 on hs3.id=hs2.fid
+				where c.fid and dmf.id
+				<if test="computeStartTime != null and computeStartTime != '' ">
+				 and DATE_FORMAT(dpr.shouldTime,'%Y-%m-%d')>= #{computeStartTime} 
+				</if>
+				<if test="computeEndTime != null and computeEndTime != '' ">
+					 and #{computeEndTime} >=DATE_FORMAT(dpr.shouldTime,'%Y-%m-%d')
+				</if>
+				 GROUP BY hs1.id
+			UNION ALL 
+			<!-- 会员中心升级现金红包 -->	
+			SELECT a.oneType,a.oneTypeName,a.twoType,a.twoTypeName,a.threeType,a.threeTypeName,a.amount,a.budgetAmount,a.type from (
+			select 3 as oneType,'优惠券返利' as oneTypeName,
+			31 as twoType,'会员中心' as twoTypeName,33 as threeType,'升级现金' as threeTypeName,sum(jmr.amount) as amount,TRUNCATE(sum(jmr.amount)/4*1.05,2) as budgetAmount,'系统发放' as type
+			from js_rewards_details jrd
+			left join js_member_rewards jmr on jmr.id=jrd.mrid
+			where jmr.way=100 and jmr.type=1 
+			<if test="computeStartTime != null and computeStartTime != '' ">
+				 and DATE_FORMAT(jrd.addDate,'%Y-%m-%d')>= #{computeStartTime} 
+			</if>
+			<if test="computeEndTime != null and computeEndTime != '' ">
+				 and #{computeEndTime} >=DATE_FORMAT(jrd.addDate,'%Y-%m-%d')
+			</if>
+			)a	where a.amount
+			UNION ALL
+			<!-- 双11返现金 -->	
+			select 3 as oneType,'优惠券返利' as oneTypeName,
+			7 as twoType,'复投返利' as twoTypeName,30 as threeType,'活动现金' as threeTypeName,
+			sum(jal.amount) as amount ,TRUNCATE(sum(jal.amount)/4*1.05,2)as budgetAmount,'系统发放' as type
+ 			from js_activity_award_log jal
+ 			<where>
+ 			<if test="computeStartTime != null and computeStartTime != '' ">
+				 and DATE_FORMAT(jal.addTime,'%Y-%m-%d')>= #{computeStartTime} 
+			</if>
+			<if test="computeEndTime != null and computeEndTime != '' ">
+				 and #{computeEndTime} >=DATE_FORMAT(jal.addTime,'%Y-%m-%d')
+			</if>
+			</where>
+			
+		)ta 
+		where ta.amount
+			<if test="oneType != null and oneType != '' ">
+				and ta.oneType=#{oneType}
+			</if>
+			<if test="twoType != null and twoType != '' ">
+				and ta.twoType=#{twoType}
+			</if>
+			<if test="threeType != null and threeType != '' ">
+				and ta.threeType=#{threeType}
+			</if>
+		
+		limit #{offset},#{limit}
+	</select>
+	
+	<!-- 统计 -->
+	<select id="getActivityBudgetCount" resultType="java.lang.Integer" parameterType="java.util.Map">
+	SELECT count(1) FROM (		
+			<!-- 周年庆 -->
+		SELECT a.oneType,a.oneTypeName,a.twoType,a.twoTypeName,a.threeType,a.threeTypeName,a.amount,a.budgetAmount,a.type from (
+			SELECT 3 as oneType,'优惠券返利' as oneTypeName,
+				7 as twoType,'复投返利 ' as twoTypeName, 
+				30 as threeType,'活动现金' as threeTypeName,
+				TRUNCATE(SUM(amount),2) AS amount,TRUNCATE(SUM(amount)/4*1.05,2) as budgetAmount,'系统发放' as type
+				from js_anniversary_share 
+				<where>
+					<if test="computeStartTime != null and computeStartTime != '' ">
+						 and DATE_FORMAT(addtime,'%Y-%m-%d') >=#{computeEndTime} 
+					</if>
+					<if test="computeEndTime != null and computeEndTime != '' ">
+						 and #{computeEndTime}>=DATE_FORMAT(addtime,'%Y-%m-%d')
+					</if>
+				</where>
+			)a where a.amount
+			UNION all
+		<!--邀请好友三重礼-->
+		SELECT 
+			1 as oneType,'邀请' as oneTypeName,
+			4 as twoType,'邀请有好礼' as twoTypeName,
+			CASE isRepeat WHEN 0 THEN 10 ELSE 11 end as threeType,CASE isRepeat WHEN 0 THEN '邀请首投奖励' ELSE '邀请复投奖励' end as threeTypeName,
+			TRUNCATE(SUM(amount),2) AS amount,TRUNCATE(SUM(amount)/4*1.05,2) as budgetAmount,'系统发放' as type
+			FROM js_activity_member_account WHERE 1= 1 
+			<if test="computeStartTime != null and computeStartTime != '' ">
+				 and DATE_FORMAT(addDate,'%Y-%m-%d') >= #{computeStartTime} 
+			</if>
+			<if test="computeEndTime != null and computeEndTime != '' ">
+				 and #{computeEndTime}>=DATE_FORMAT(addDate,'%Y-%m-%d')
+			</if>
+		GROUP BY isRepeat
+		UNION all
+		<!-- 平台存管/金运通贴息 -->
+		SELECT t.oneType,t.oneTypeName,t.twoType,t.twoTypeName,t.threeType,t.threeTypeName,TRUNCATE(sum(amount),2) as amount,TRUNCATE(SUM(amount)/4*1.05,2) as budgetAmount,'系统发放' as type FROM 
+			(SELECT 
+			2 as oneType,'贴息' as oneTypeName,
+			5 as twoType,'回款营销收益' as twoTypeName,
+			CASE project_no WHEN 'jzh' THEN 13 ELSE 14 END AS threeType,
+			CASE project_no WHEN 'jzh' THEN '平台存管贴息' ELSE '平台金运通贴息' END AS threeTypeName,
+			dpir.platformInterest AS amount,
+			CASE project_no WHEN 'jzh' THEN '存管' 
+			ELSE '金运通' END AS channel
+			FROM dr_product_invest i 
+			LEFT JOIN dr_product_info p ON i.pid = p.id 
+			LEFT JOIN dr_member_favourable f ON i.fid = f.id
+			LEFT JOIN dr_product_invest_repayinfo dpir ON i.id =dpir.investId  
+			WHERE i.`status` != 2 AND (p.type =2 or p.type =3) and p.status in(8,9)
+			<if test="computeStartTime != null and computeStartTime != '' ">
+				 and DATE_FORMAT(dpir.shouldTime,'%Y-%m-%d') >= #{computeStartTime} 
+			</if>
+			<if test="computeEndTime != null and computeEndTime != '' ">
+				 and #{computeEndTime}>=DATE_FORMAT(dpir.shouldTime,'%Y-%m-%d')
+			</if>
+			)t
+		GROUP BY t.threeType
+		UNION all
+		<!--平台未满标贴息-->
+		SELECT t.oneType,t.oneTypeName,t.twoType,t.twoTypeName,t.threeType,t.threeTypeName,TRUNCATE(sum(t.amount),2) as amount,TRUNCATE(SUM(t.amount)/4*1.05,2) as budgetAmount,'系统发放' as type FROM 
+			(SELECT 
+				2 as oneType,'贴息' as oneTypeName,
+				5 as twoType,'回款营销收益' as twoTypeName,
+				12 as threeType,'平台未满标贴息' as threeTypeName,
+				dpir.interestSubsidy AS amount
+				FROM dr_product_invest i 
+				LEFT JOIN dr_product_info p ON i.pid = p.id 
+				LEFT JOIN dr_member_favourable f ON i.fid = f.id
+				LEFT JOIN dr_product_invest_repayinfo dpir ON i.id =dpir.investId 
+				WHERE i.status != 2 AND p.type =2 and p.status in(8,9)
+				<if test="computeStartTime != null and computeStartTime != '' ">
+					 and DATE_FORMAT(dpir.shouldTime,'%Y-%m-%d') >= #{computeStartTime} 
+				</if>
+				<if test="computeEndTime != null and computeEndTime != '' ">
+					 and #{computeEndTime}>=DATE_FORMAT(dpir.shouldTime,'%Y-%m-%d')
+				</if>
+			)t
+		group by t.threeType
+		UNION all
+		<!--优惠券 -红包-->
+				SELECT 
+				3 as oneType,
+				'优惠券返利' as oneTypeName,
+				hs2.id as twoType,
+				hs2.name as twoTypeName,
+				hs1.id as threeType,
+				hs1.name as threeTypeName,
+				TRUNCATE(sum(dmf.profitAmount),2) as amount,TRUNCATE(SUM(dmf.profitAmount)/4*1.05,2) as budgetAmount,
+				CASE dmf.source when 2 then '活动发放' when 1 then '电销发放'  else '系统发放' end as type					
+				from dr_product_invest c			
+				LEFT JOIN dr_member_favourable dmf ON dmf.id = c.fid and dmf.`status` = 1 and dmf.type in (1,3)
+				LEFT JOIN dr_activity_parameter dap ON dap.ID = dmf.activityId	
+				left join dr_activity_hierarchical_structure hs1 on hs1.id=dap.ahsid 
+				left join dr_activity_hierarchical_structure hs2 on hs2.id=hs1.fid 
+				left join dr_activity_hierarchical_structure hs3 on hs3.id=hs2.fid
+				where c.fid and dmf.id
+					<if test="computeStartTime != null and computeStartTime != '' ">
+					and DATE_FORMAT(c.investTime,'%Y-%m-%d')>= #{computeStartTime} 
+					</if>
+					<if test="computeEndTime != null and computeEndTime != '' ">
+					 and #{computeEndTime} >=DATE_FORMAT(c.investTime,'%Y-%m-%d') 
+					</if>
+					GROUP BY hs1.id
+			UNION ALL
+			<!--优惠券 -体验金-->
+			SELECT a.oneType,a.oneTypeName,a.twoType,a.twoTypeName,a.threeType,a.threeTypeName,a.amount,a.budgetAmount,a.type from (
+				SELECT 
+				3 as oneType,
+				'优惠券返利' as oneTypeName,
+				16 as twoType,
+				'体验金' as twoTypeName,
+				29 as threeType,
+				'体验金' as threeTypeName,
+				TRUNCATE(sum(c.interest),2) as amount,TRUNCATE(SUM(c.interest)/4*1.05,2) as budgetAmount,
+				'系统发放' as type					
+				from dr_product_invest c			
+				where c.experience
+					<if test="computeStartTime != null and computeStartTime != '' ">
+						and DATE_FORMAT(c.investTime,'%Y-%m-%d')>= #{computeStartTime} 
+					</if>
+					<if test="computeEndTime != null and computeEndTime != '' ">
+					 and #{computeEndTime}  >=DATE_FORMAT(c.investTime,'%Y-%m-%d')
+					</if>
+			)a where a.amount
+			UNION ALL 
+			<!--优惠券 -加息和返现-->
+				SELECT 
+				3 as oneType,
+				'优惠券返利' as oneTypeName,
+				hs2.id as twoType,
+				hs2.name as twoTypeName,
+				hs1.id as threeType,
+				hs1.name as threeTypeName,				
+				TRUNCATE(sum(if(dmf.type =2,dpr.interestRateCoupon,dpr.interestDoubleCoupons)),2) as amount,
+				TRUNCATE(SUM(if(dmf.type =2,dpr.interestRateCoupon,dpr.interestDoubleCoupons))/4*1.05,2) as budgetAmount,
+				CASE dmf.source when 2 then '活动发放' when 1 then '电销发放'  else '系统发放' end as type				
+				from dr_product_invest c			
+				LEFT JOIN dr_product_invest_repayinfo dpr on c.id = dpr.investId
+				LEFT JOIN dr_member_favourable dmf ON dmf.id = c.fid and dmf.`status` = 1 and dmf.type in (2,4)
+				LEFT JOIN dr_activity_parameter dap ON dap.ID = dmf.activityId	
+				left join dr_activity_hierarchical_structure hs1 on hs1.id=dap.ahsid 
+				left join dr_activity_hierarchical_structure hs2 on hs2.id=hs1.fid 
+				left join dr_activity_hierarchical_structure hs3 on hs3.id=hs2.fid
+				where c.fid and dmf.id
+				<if test="computeStartTime != null and computeStartTime != '' ">
+				 and DATE_FORMAT(dpr.shouldTime,'%Y-%m-%d')>= #{computeStartTime} 
+				</if>
+				<if test="computeEndTime != null and computeEndTime != '' ">
+					 and #{computeEndTime} >=DATE_FORMAT(dpr.shouldTime,'%Y-%m-%d')
+				</if>
+				 GROUP BY hs1.id
+			UNION ALL 
+			<!-- 会员中心升级现金红包 -->	
+			SELECT a.oneType,a.oneTypeName,a.twoType,a.twoTypeName,a.threeType,a.threeTypeName,a.amount,a.budgetAmount,a.type from (
+			select 3 as oneType,'优惠券返利' as oneTypeName,
+			31 as twoType,'会员中心' as twoTypeName,33 as threeType,'升级现金' as threeTypeName,sum(jmr.amount) as amount,TRUNCATE(sum(jmr.amount)/4*1.05,2) as budgetAmount,'系统发放' as type
+			from js_rewards_details jrd
+			left join js_member_rewards jmr on jmr.id=jrd.mrid
+			where jmr.way=100 and jmr.type=1
+			<if test="computeStartTime != null and computeStartTime != '' ">
+				 and DATE_FORMAT(jrd.addDate,'%Y-%m-%d')>= #{computeStartTime} 
+			</if>
+			<if test="computeEndTime != null and computeEndTime != '' ">
+				 and #{computeEndTime} >=DATE_FORMAT(jrd.addDate,'%Y-%m-%d')
+			</if>
+			)a	where a.amount
+			UNION ALL
+			<!-- 双11返现金 -->	
+			select 3 as oneType,'优惠券返利' as oneTypeName,
+			7 as twoType,'复投返利' as twoTypeName,30 as threeType,'活动现金' as threeTypeName,
+			sum(jal.amount),TRUNCATE(sum(jal.amount)/4*1.05,2)as budgetAmount,'系统发放' as type
+ 			from js_activity_award_log jal
+ 			<where>
+ 			<if test="computeStartTime != null and computeStartTime != '' ">
+				 and DATE_FORMAT(jal.addTime,'%Y-%m-%d')>= #{computeStartTime} 
+			</if>
+			<if test="computeEndTime != null and computeEndTime != '' ">
+				 and #{computeEndTime} >=DATE_FORMAT(jal.addTime,'%Y-%m-%d')
+			</if>
+			</where>
+		)ta
+		<where>
+			<if test="oneType != null and oneType != '' ">
+				and ta.oneType=#{oneType}
+			</if>
+			<if test="twoType != null and twoType != '' ">
+				and ta.twoType=#{twoType}
+			</if>
+			<if test="threeType != null and threeType != '' ">
+				and ta.threeType=#{threeType}
+			</if>
+		</where>
+	</select>
+	
+	
+	<select id="getActivityBudgetSum" resultType="java.util.Map" parameterType="java.util.Map">
+	SELECT '合计' as budgetTime, TRUNCATE(SUM(ta.amount),2) AS amount,TRUNCATE(SUM(ta.budgetAmount),2) as budgetAmount FROM (
+			<!-- 周年庆 -->
+		SELECT a.oneType,a.oneTypeName,a.twoType,a.twoTypeName,a.threeType,a.threeTypeName,a.amount,a.budgetAmount,a.type from (
+			SELECT 3 as oneType,'优惠券返利' as oneTypeName,
+				7 as twoType,'复投返利 ' as twoTypeName, 
+				30 as threeType,'活动现金' as threeTypeName,
+				TRUNCATE(SUM(amount),2) AS amount,TRUNCATE(SUM(amount)/4*1.05,2) as budgetAmount,'系统发放' as type
+				from js_anniversary_share 
+				<where>
+					<if test="computeStartTime != null and computeStartTime != '' ">
+						 and DATE_FORMAT(addtime,'%Y-%m-%d') >=#{computeEndTime} 
+					</if>
+					<if test="computeEndTime != null and computeEndTime != '' ">
+						 and #{computeEndTime}>=DATE_FORMAT(addtime,'%Y-%m-%d')
+					</if>
+				</where>
+			)a where a.amount
+			UNION all
+		<!--邀请好友三重礼-->
+		SELECT 
+			1 as oneType,'邀请' as oneTypeName,
+			4 as twoType,'邀请有好礼' as twoTypeName,
+			CASE isRepeat WHEN 0 THEN 10 ELSE 11 end as threeType,CASE isRepeat WHEN 0 THEN '邀请首投奖励' ELSE '邀请复投奖励' end as threeTypeName,
+			TRUNCATE(SUM(amount),2) AS amount,TRUNCATE(SUM(amount)/4*1.05,2) as budgetAmount,'系统发放' as type
+			FROM js_activity_member_account WHERE 1=1
+			<if test="computeStartTime != null and computeStartTime != '' ">
+				 and DATE_FORMAT(addDate,'%Y-%m-%d') >= #{computeStartTime} 
+			</if>
+			<if test="computeEndTime != null and computeEndTime != '' ">
+				 and #{computeEndTime}>=DATE_FORMAT(addDate,'%Y-%m-%d')
+			</if>
+		GROUP BY isRepeat
+		UNION all
+		<!-- 平台存管/金运通贴息 -->
+		SELECT t.oneType,t.oneTypeName,t.twoType,t.twoTypeName,t.threeType,t.threeTypeName,TRUNCATE(sum(amount),2) as amount,TRUNCATE(SUM(amount)/4*1.05,2) as budgetAmount,'系统发放' as type FROM 
+			(SELECT 
+			2 as oneType,'贴息' as oneTypeName,
+			5 as twoType,'回款营销收益' as twoTypeName,
+			CASE project_no WHEN 'jzh' THEN 13 ELSE 14 END AS threeType,
+			CASE project_no WHEN 'jzh' THEN '平台存管贴息' ELSE '平台金运通贴息' END AS threeTypeName,
+			dpir.platformInterest AS amount,
+			CASE project_no WHEN 'jzh' THEN '存管' 
+			ELSE '金运通' END AS channel
+			FROM dr_product_invest i 
+			LEFT JOIN dr_product_info p ON i.pid = p.id 
+			LEFT JOIN dr_member_favourable f ON i.fid = f.id
+			LEFT JOIN dr_product_invest_repayinfo dpir ON i.id =dpir.investId  
+			WHERE i.`status` != 2 AND (p.type =2 or p.type =3) and p.status in(8,9)
+			<if test="computeStartTime != null and computeStartTime != '' ">
+				 and DATE_FORMAT(dpir.shouldTime,'%Y-%m-%d') >= #{computeStartTime} 
+			</if>
+			<if test="computeEndTime != null and computeEndTime != '' ">
+				 and #{computeEndTime}>=DATE_FORMAT(dpir.shouldTime,'%Y-%m-%d')
+			</if>
+			)t
+		GROUP BY t.threeType
+		UNION all
+		<!--平台未满标贴息-->
+		SELECT t.oneType,t.oneTypeName,t.twoType,t.twoTypeName,t.threeType,t.threeTypeName,TRUNCATE(sum(t.amount),2) as amount,TRUNCATE(SUM(t.amount)/4*1.05,2) as budgetAmount,'系统发放' as type FROM 
+			(SELECT 
+				2 as oneType,'贴息' as oneTypeName,
+				5 as twoType,'回款营销收益' as twoTypeName,
+				12 as threeType,'平台未满标贴息' as threeTypeName,
+				dpir.interestSubsidy AS amount
+				FROM dr_product_invest i 
+				LEFT JOIN dr_product_info p ON i.pid = p.id 
+				LEFT JOIN dr_member_favourable f ON i.fid = f.id
+				LEFT JOIN dr_product_invest_repayinfo dpir ON i.id =dpir.investId 
+				WHERE i.status != 2 AND p.type =2 and p.status in(8,9)
+				<if test="computeStartTime != null and computeStartTime != '' ">
+					 and DATE_FORMAT(dpir.shouldTime,'%Y-%m-%d') >= #{computeStartTime} 
+				</if>
+				<if test="computeEndTime != null and computeEndTime != '' ">
+					 and #{computeEndTime}>=DATE_FORMAT(dpir.shouldTime,'%Y-%m-%d')
+				</if>
+			)t
+		group by t.threeType
+		UNION all
+		<!--优惠券 -红包-->
+				SELECT 
+				3 as oneType,
+				'优惠券返利' as oneTypeName,
+				hs2.id as twoType,
+				hs2.name as twoTypeName,
+				hs1.id as threeType,
+				hs1.name as threeTypeName,
+				TRUNCATE(sum(dmf.profitAmount),2) as amount,TRUNCATE(SUM(dmf.profitAmount)/4*1.05,2) as budgetAmount,
+				CASE dmf.source when 2 then '活动发放' when 1 then '电销发放'  else 'c发放' end as type					
+				from dr_product_invest c			
+				LEFT JOIN dr_member_favourable dmf ON dmf.id = c.fid and dmf.`status` = 1 and dmf.type in (1,3)
+				LEFT JOIN dr_activity_parameter dap ON dap.ID = dmf.activityId	
+				left join dr_activity_hierarchical_structure hs1 on hs1.id=dap.ahsid 
+				left join dr_activity_hierarchical_structure hs2 on hs2.id=hs1.fid 
+				left join dr_activity_hierarchical_structure hs3 on hs3.id=hs2.fid
+				where c.fid and dmf.id
+					<if test="computeStartTime != null and computeStartTime != '' ">
+					and DATE_FORMAT(c.investTime,'%Y-%m-%d')>= #{computeStartTime} 
+					</if>
+					<if test="computeEndTime != null and computeEndTime != '' ">
+					 and #{computeEndTime} >=DATE_FORMAT(c.investTime,'%Y-%m-%d') 
+					</if>
+					GROUP BY hs1.id
+			UNION ALL
+			<!--优惠券 -体验金-->
+			SELECT a.oneType,a.oneTypeName,a.twoType,a.twoTypeName,a.threeType,a.threeTypeName,a.amount,a.budgetAmount,a.type from (
+				SELECT 
+				3 as oneType,
+				'优惠券返利' as oneTypeName,
+				16 as twoType,
+				'体验金' as twoTypeName,
+				29 as threeType,
+				'体验金' as threeTypeName,
+				TRUNCATE(sum(c.interest),2) as amount,TRUNCATE(SUM(c.interest)/4*1.05,2) as budgetAmount,
+				'系统发放' as type					
+				from dr_product_invest c			
+				where c.experience
+					<if test="computeStartTime != null and computeStartTime != '' ">
+						and DATE_FORMAT(c.investTime,'%Y-%m-%d')>= #{computeStartTime} 
+					</if>
+					<if test="computeEndTime != null and computeEndTime != '' ">
+					 and #{computeEndTime}  >=DATE_FORMAT(c.investTime,'%Y-%m-%d') 
+					</if>
+			)a where a.amount
+			UNION ALL 
+			<!--优惠券 -加息和返现-->
+				SELECT 
+				3 as oneType,
+				'优惠券返利' as oneTypeName,
+				hs2.id as twoType,
+				hs2.name as twoTypeName,
+				hs1.id as threeType,
+				hs1.name as threeTypeName,				
+				TRUNCATE(sum(if(dmf.type =2,dpr.interestRateCoupon,dpr.interestDoubleCoupons)),2) as amount,
+				TRUNCATE(SUM(if(dmf.type =2,dpr.interestRateCoupon,dpr.interestDoubleCoupons))/4*1.05,2) as budgetAmount,
+				CASE dmf.source when 2 then '活动发放' when 1 then '电销发放'  else '系统发放' end as type				
+				from dr_product_invest c			
+				LEFT JOIN dr_product_invest_repayinfo dpr on c.id = dpr.investId
+				LEFT JOIN dr_member_favourable dmf ON dmf.id = c.fid and dmf.`status` = 1 and dmf.type in (2,4)
+				LEFT JOIN dr_activity_parameter dap ON dap.ID = dmf.activityId	
+				left join dr_activity_hierarchical_structure hs1 on hs1.id=dap.ahsid 
+				left join dr_activity_hierarchical_structure hs2 on hs2.id=hs1.fid 
+				left join dr_activity_hierarchical_structure hs3 on hs3.id=hs2.fid
+				where c.fid and dmf.id
+				<if test="computeStartTime != null and computeStartTime != '' ">
+				 and DATE_FORMAT(dpr.shouldTime,'%Y-%m-%d')>= #{computeStartTime} 
+				</if>
+				<if test="computeEndTime != null and computeEndTime != '' ">
+					 and #{computeEndTime} >=DATE_FORMAT(dpr.shouldTime,'%Y-%m-%d')
+				</if>
+				 GROUP BY hs1.id
+			UNION ALL 
+			<!-- 会员中心升级现金红包 -->	
+			SELECT a.oneType,a.oneTypeName,a.twoType,a.twoTypeName,a.threeType,a.threeTypeName,a.amount,a.budgetAmount,a.type from (
+			select 3 as oneType,'优惠券返利' as oneTypeName,
+			31 as twoType,'会员中心' as twoTypeName,33 as threeType,'升级现金' as threeTypeName,sum(jmr.amount) as amount,TRUNCATE(sum(jmr.amount)/4*1.05,2) as budgetAmount,'系统发放' as type
+			from js_rewards_details jrd
+			left join js_member_rewards jmr on jmr.id=jrd.mrid
+			where jmr.way=100 and jmr.type=1
+			<if test="computeStartTime != null and computeStartTime != '' ">
+				 and DATE_FORMAT(jrd.addDate,'%Y-%m-%d')>= #{computeStartTime} 
+			</if>
+			<if test="computeEndTime != null and computeEndTime != '' ">
+				 and #{computeEndTime} >=DATE_FORMAT(jrd.addDate,'%Y-%m-%d')
+			</if>
+			)a	where a.amount
+			UNION ALL
+			<!-- 双11返现金 -->	
+			select 3 as oneType,'优惠券返利' as oneTypeName,
+			7 as twoType,'复投返利' as twoTypeName,30 as threeType,'活动现金' as threeTypeName,
+			sum(jal.amount) as amount,TRUNCATE(sum(jal.amount)/4*1.05,2)as budgetAmount,'系统发放' as type
+ 			from js_activity_award_log jal
+ 			<where>
+ 			<if test="computeStartTime != null and computeStartTime != '' ">
+				 and DATE_FORMAT(jal.addTime,'%Y-%m-%d')>= #{computeStartTime} 
+			</if>
+			<if test="computeEndTime != null and computeEndTime != '' ">
+				 and #{computeEndTime} >=DATE_FORMAT(jal.addTime,'%Y-%m-%d')
+			</if>
+			</where>
+		)ta
+		<where>
+			<if test="oneType != null and oneType != '' ">
+				and ta.oneType=#{oneType}
+			</if>
+			<if test="twoType != null and twoType != '' ">
+				and ta.twoType=#{twoType}
+			</if>
+			<if test="threeType != null and threeType != '' ">
+				and ta.threeType=#{threeType}
+			</if>
+		</where>
+	</select>
+	<!-- 邀请奖励明细查询 -->
+	<select id="getInviteAwarDetailList" parameterType="java.util.Map" resultType="java.util.Map">
+	SELECT DATE_FORMAT(jama.addDate,'%Y-%m-%d') AS 日期,CASE jama.isRepeat WHEN 0 THEN '10' ELSE '11' END AS '类型',
+		CASE WHEN  jama.investOrder IS NOT NULL THEN '邀请有好礼' ELSE 'null' END AS typeTwo,dpiv.amount amount,
+		CASE jama.isRepeat WHEN 0 THEN '邀请首投奖励' ELSE '邀请复投奖励' end as typeThree,jama.amount AS payAmount,dpi.fullName as fullName,
+		CASE dpi.project_no WHEN 'jzh' THEN '存管' ELSE '金运通' END AS project_no,
+		DATE_FORMAT(dpiv.investTime,'%Y-%m-%d %H:%i:%s') as investTime
+		FROM js_activity_member_account jama
+		LEFT JOIN dr_product_invest dpiv ON jama.piid = dpiv.id
+		LEFT JOIN dr_product_info dpi ON dpiv.pid = dpi.id
+		<where>
+			jama.investOrder is not null
+			AND jama.amount != 0
+			<if test="startDate != null and startDate != ''">
+				AND <![CDATA[ DATE_FORMAT(#{startDate}, '%Y-%m-%d') <= DATE_FORMAT(dpiv.investTime, '%Y-%m-%d') ]]> 
+			</if>
+			<if test="endDate != null and endDate != ''">
+				AND <![CDATA[#{endDate}>= DATE_FORMAT(dpiv.investTime,'%Y-%m-%d')]]> 
+			</if>
+			<if test="projectNo == 1">
+				AND dpi.project_no IS NULL
+			</if>
+			<if test="projectNo == 2">
+				AND dpi.project_no IS NOT NULL
+			</if>
+			<if test="three_flag !=null and three_flag !=''">
+				AND jama.isRepeat = #{three_flag}
+			</if>
+			<if test="simpleName != null and simpleName != ''">
+				AND dpi.simpleName = #{simpleName}
+			</if>
+		</where>
+		ORDER BY investTime ASC
+		<if test="limit !=null">
+			limit #{offset},#{limit}
+		</if>
+	</select>
+	<!-- 邀请奖励明细总数查询 -->
+	<select id="getInviteAwarDetailListCount" parameterType="java.util.Map" resultType="Integer">
+		SELECT count(1)
+			FROM js_activity_member_account jama
+			LEFT JOIN dr_product_invest dpiv ON jama.piid = dpiv.id
+			LEFT JOIN dr_product_info dpi ON dpiv.pid = dpi.id
+		<where>
+			jama.investOrder is not null
+			AND jama.amount != 0
+			<if test="startDate != null and startDate != ''">
+				AND <![CDATA[ DATE_FORMAT(#{startDate}, '%Y-%m-%d') <= DATE_FORMAT(dpiv.investTime, '%Y-%m-%d') ]]> 
+			</if>
+			<if test="endDate != null and endDate != ''">
+				AND <![CDATA[#{endDate}>= DATE_FORMAT(dpiv.investTime,'%Y-%m-%d')]]> 
+			</if>
+			<if test="projectNo == 1">
+				AND dpi.project_no IS NULL
+			</if>
+			<if test="projectNo == 2">
+				AND dpi.project_no IS NOT NULL
+			</if>
+			<if test="three_flag !=null and three_flag !=''">
+				AND jama.isRepeat = #{three_flag}
+			</if>
+			<if test="simpleName != null and simpleName != ''">
+				AND dpi.simpleName = #{simpleName}
+			</if>
+		</where>
+		ORDER BY investTime ASC
+	</select>
+	<!-- 邀请奖励明细总计 -->
+	<select id="selectInviteAwarDetailSum" parameterType="java.util.Map" resultType="java.util.Map">
+	select '合计' as investTime,sum(ifnull(amount,0)) as 'amount',sum(ifnull(payAmount,0)) as 'payAmount' from(
+		SELECT DATE_FORMAT(jama.addDate,'%Y-%m-%d') AS 日期,CASE jama.isRepeat WHEN 0 THEN '10' ELSE '11' END AS '类型',
+		CASE WHEN  jama.investOrder IS NOT NULL THEN '邀请有好礼' ELSE 'null' END AS typeTwo,dpiv.amount amount,
+		CASE jama.isRepeat WHEN 0 THEN '邀请首投奖励' ELSE '邀请复投奖励' end as typeThree,jama.amount AS payAmount,dpi.fullName as fullName,
+		CASE dpi.project_no WHEN 'jzh' THEN '存管' ELSE '金运通' END AS project_no,
+		DATE_FORMAT(dpiv.investTime,'%Y-%m-%d %H:%i:%s') as investTime
+		FROM js_activity_member_account jama
+		LEFT JOIN dr_product_invest dpiv ON jama.piid = dpiv.id
+		LEFT JOIN dr_product_info dpi ON dpiv.pid = dpi.id
+		<where>
+			jama.investOrder is not null
+			AND jama.amount != 0
+			<if test="startDate != null and startDate != ''">
+				AND <![CDATA[ DATE_FORMAT(#{startDate}, '%Y-%m-%d') <= DATE_FORMAT(dpiv.investTime, '%Y-%m-%d') ]]> 
+			</if>
+			<if test="endDate != null and endDate != ''">
+				AND <![CDATA[#{endDate}>= DATE_FORMAT(dpiv.investTime,'%Y-%m-%d')]]> 
+			</if>
+			<if test="projectNo == 1">
+				AND dpi.project_no IS NULL
+			</if>
+			<if test="projectNo == 2">
+				AND dpi.project_no IS NOT NULL
+			</if>
+			<if test="three_flag !=null and three_flag !=''">
+				AND jama.isRepeat = #{three_flag}
+			</if>
+			<if test="simpleName != null and simpleName != ''">
+				AND dpi.simpleName = #{simpleName}
+			</if>
+		</where>
+		ORDER BY investTime ASC ) a
+	</select>
+	<!-- 邀请奖励明细当页总计 -->
+	<select id="selectInviteAwarDetailPageSum"  parameterType="java.util.Map" resultType="java.util.Map">
+	select '本业合计' as investTime,sum(ifnull(amount,0)) as 'amount',sum(ifnull(payAmount,0))as 'payAmount' from(
+		SELECT DATE_FORMAT(jama.addDate,'%Y-%m-%d') AS 日期,CASE jama.isRepeat WHEN 0 THEN '10' ELSE '11' END AS '类型',
+		CASE WHEN  jama.investOrder IS NOT NULL THEN '邀请有好礼' ELSE '邀请好友' END AS typeTwo,dpiv.amount amount,
+		CASE jama.isRepeat WHEN 0 THEN '邀请首投奖励' ELSE '邀请复投奖励' end as typeThree,jama.amount AS payAmount,dpi.fullName as fullName,
+		CASE dpi.project_no WHEN 'jzh' THEN '存管' ELSE '金运通' END AS project_no,
+		DATE_FORMAT(dpiv.investTime,'%Y-%m-%d %H:%i:%s') as investTime
+		FROM js_activity_member_account jama
+		LEFT JOIN dr_product_invest dpiv ON jama.piid = dpiv.id
+		LEFT JOIN dr_product_info dpi ON dpiv.pid = dpi.id
+		<where>
+			jama.investOrder is not null
+			AND jama.amount != 0
+			<if test="startDate != null and startDate != ''">
+				AND <![CDATA[ DATE_FORMAT(#{startDate}, '%Y-%m-%d') <= DATE_FORMAT(dpiv.investTime, '%Y-%m-%d') ]]> 
+			</if>
+			<if test="endDate != null and endDate != ''">
+				AND <![CDATA[#{endDate}>= DATE_FORMAT(dpiv.investTime,'%Y-%m-%d')]]> 
+			</if>
+			<if test="projectNo == 1">
+				AND dpi.project_no IS NULL
+			</if>
+			<if test="projectNo == 2">
+				AND dpi.project_no IS NOT NULL
+			</if>
+			<if test="three_flag !=null and three_flag !=''">
+				AND jama.isRepeat = #{three_flag}
+			</if>
+			<if test="simpleName != null and simpleName != ''">
+				AND dpi.simpleName = #{simpleName}
+			</if>
+		</where>
+		ORDER BY investTime ASC
+		<if test="limit !=null">
+			limit #{offset},#{limit}
+		</if>) a
+	</select>
+	<select id="getTreeFlag" resultType="java.util.Map">
+		SELECT id as id,name as name FROM dr_activity_hierarchical_structure WHERE grade = 3
+	</select>
+	<!-- 查询优惠券 -->
+	<select id="selectCouponHierarchyDetail" parameterType="java.util.Map" resultType="java.util.Map">
+	SELECT a.name AS threeTypeName,b.name AS twoTypeName,c.`name` AS oneTypeName,a.isYes isYes,a.id id
+	FROM (SELECT * FROM dr_activity_hierarchical_structure WHERE grade = 3) a 
+		LEFT JOIN dr_activity_hierarchical_structure b ON a.fid = b.id
+		LEFT JOIN dr_activity_hierarchical_structure c ON b.fid = c.id
+		<where>
+			<if test="oneType != null and oneType != ''">
+				and c.id = #{oneType}
+			</if>
+			<if test="twoType != null and twoType != ''" >
+				and b.id = #{twoType}
+			</if>
+		</where>
+		<if test="offset != null and limit != null">
+		limit #{offset},#{limit}
+		</if>
+	</select>
+	<!-- 查询优惠券总数 -->
+	<select id="selectCouponHierarchyDetailCount" parameterType="java.util.Map" resultType="java.lang.Integer">
+	SELECT count(1) 
+	FROM (SELECT * FROM dr_activity_hierarchical_structure WHERE grade = 3) a 
+		LEFT JOIN dr_activity_hierarchical_structure b ON a.fid = b.id
+		LEFT JOIN dr_activity_hierarchical_structure c ON b.fid = c.id
+		<where>
+			<if test="oneType != null and oneType != ''">
+				and c.id = #{oneType}
+			</if>
+			<if test="twoType != null and twoType != ''" >
+				and b.id = #{twoType}
+			</if>
+		</where>
+	</select>
+	<insert id="insertCouponHierarchy" parameterType="java.util.Map">
+		INSERT INTO dr_activity_hierarchical_structure (name,grade,fid,valid,isYes) VALUES (#{threeType},3,#{twoType},1,1)
+	</insert>
+	<update id="updateCouponHierarchy" parameterType="java.util.Map">
+		update dr_activity_hierarchical_structure set name = #{threeType} where id = #{id}
+	</update>
+	<select id="selectCouponHierarchyById" parameterType="java.util.Map" resultType="java.util.Map">
+		SELECT a.name AS threeTypeName,b.name AS twoTypeName,c.`name` AS oneTypeName,c.isYes isYes,a.id id
+		FROM (SELECT * FROM dr_activity_hierarchical_structure WHERE grade = 3) a 
+		LEFT JOIN dr_activity_hierarchical_structure b ON a.fid = b.id
+		LEFT JOIN dr_activity_hierarchical_structure c ON b.fid = c.id
+		where a.id = #{id}
+	</select>
+</mapper>

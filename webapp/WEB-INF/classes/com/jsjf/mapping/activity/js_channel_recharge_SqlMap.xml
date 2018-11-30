@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://www.mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.jsjf.dao.activity.JsChannelRechargeDao">
+	
+	
+	
+	<insert id="insert" parameterType="java.util.Map">
+		insert into js_channel_recharge (adddate,recharge_date,channel_id,channel_name,recharge_amount,balance) 
+			values(now(),#{recharge_date},#{channel_id},#{channel_name},#{recharge_amount},#{balance})
+	</insert> 
+	
+	<select id="selectList" parameterType="java.util.Map" resultType="java.util.Map">
+		select date_format(c.recharge_date,'%Y-%m-%d') as 'recharge_date',jct.name as 'channel_name',c.recharge_amount as 'recharge_amount',c.balance as 'balance' 
+			from  js_channel_recharge c
+			left join js_channel_type jct on jct.id = c.channel_id
+			<where>
+				<if test="startDate !=null and startDate !='' ">
+					and  date_format(c.recharge_date,'%Y-%m-%d') >= date_format(#{startDate},'%Y-%m-%d')
+				</if>
+				<if test="endDate !=null and endDate !='' ">
+					and  date_format(#{endDate},'%Y-%m-%d')  >=  date_format(c.recharge_date,'%Y-%m-%d')
+				</if>
+				<if test=" channel_id != null and channel_id !='' ">
+					and jct.id = #{channel_id}
+				</if>
+			</where>
+			order by date_format(c.recharge_date,'%Y-%m-%d') desc,c.id desc
+			<if test="offset != null">
+				limit #{offset},#{limit}
+			</if>
+	</select>
+	
+	<select id="selectListCount" parameterType="java.util.Map" resultType="int">
+		select count(1) from  js_channel_recharge c
+			left join js_channel_type jct on jct.id = c.channel_id
+			<where>
+				<if test="startDate !=null and startDate !='' ">
+					and  date_format(c.recharge_date,'%Y-%m-%d') >= date_format(#{startDate},'%Y-%m-%d')
+				</if>
+				<if test="endDate !=null and endDate !='' ">
+					and  date_format(#{endDate},'%Y-%m-%d')  >=  date_format(c.recharge_date,'%Y-%m-%d')
+				</if>
+				<if test=" channel_id != null and channel_id !='' ">
+					and jct.id = #{channel_id}
+				</if>
+			</where>
+	</select>
+	
+	<select id="selectListAmountSum" parameterType="java.util.Map" resultType="java.util.Map">
+		select '总计' as 'recharge_date',sum(ifnull(c.recharge_amount,0)) as 'recharge_amount' 
+			from  js_channel_recharge c
+			left join js_channel_type jct on jct.id = c.channel_id
+			<where>
+				<if test="startDate !=null and startDate !='' ">
+					and  date_format(c.recharge_date,'%Y-%m-%d') >= date_format(#{startDate},'%Y-%m-%d')
+				</if>
+				<if test="endDate !=null and endDate !='' ">
+					and  date_format(#{endDate},'%Y-%m-%d')  >=  date_format(c.recharge_date,'%Y-%m-%d')
+				</if>
+				<if test=" channel_id != null and channel_id !='' ">
+					and jct.id = #{channel_id}
+				</if>
+			</where>
+			order by date_format(c.recharge_date,'%Y-%m-%d') asc
+	</select>
+	
+	<select id="selectChannelRechargeByChannelName" parameterType="Integer" resultType="java.util.Map">
+		SELECT * from js_channel_recharge c 
+			<where>
+				<if test="channel_id !=null">
+					c.channel_id = #{channel_id} 
+				</if>
+			</where>
+			ORDER BY c.adddate desc;
+	</select>
+</mapper>

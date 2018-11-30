@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://www.mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.jsjf.dao.member.JsMemberGradeDAO">
+	<resultMap id="JsMemberGradeResult" type="com.jsjf.model.member.JsMemberGrade">
+		<result column="id" property="id" jdbcType="INTEGER" />
+		<result column="level" property="level" jdbcType="INTEGER" />
+		<result column="wealthStart" property="wealth_start" jdbcType="INTEGER" />
+		<result column="wealthEnd" property="wealth_end" jdbcType="INTEGER" />
+		<result column="amount" property="amount" jdbcType="DECIMAL" />
+		<result column="grade" property="grade" jdbcType="INTEGER" />
+	</resultMap>
+
+
+	
+	<!-- 获取所有会员等级数据 -->
+	<select id="getMemberGrade" resultType="java.util.Map" >
+		select id as id,level as level
+		from js_member_grade
+	</select>
+	
+	<!-- 获取所有会员等级数据 -->
+	<select id="getMemberGradeById" parameterType="Integer" resultMap="JsMemberGradeResult">
+		select id,level,wealth_start,wealth_end,amount,grade
+		from js_member_grade  where  id = #{id}
+	</select>
+	
+	
+	<select id="selectLevelByWealth" parameterType="Integer" resultMap="JsMemberGradeResult">
+	
+		select id,level,wealth_start,wealth_end,amount,grade from js_member_grade 
+			where #{wealth} >=  wealth_start and wealth_end > #{wealth} 
+			ORDER BY grade desc limit 1
+	</select>
+		<!-- 查询财富值和投资总额 -->
+	<select id="selectLightQualification" parameterType="java.lang.Integer" resultType="java.lang.Integer">
+		SELECT  IFNULL((SUM(dpiv.amount)-jmg.amount),0) as amount FROM dr_member dm 
+			LEFT JOIN dr_product_invest dpiv ON dpiv.uid = dm.uid
+			LEFT JOIN dr_product_info dpi ON dpiv.pid = dpi.id
+			LEFT JOIN js_member_grade jmg ON jmg.id = dm.initMgid
+			WHERE  dm.uid = #{uid} AND dpi.type IN(2,6) AND dpiv.status in (1,3)
+			AND DATE_FORMAT(dpiv.investTime,'%Y-%m-%d')>'2017-10-12' GROUP BY dm.uid;
+	</select>
+	<!-- 点亮会员 -->
+	<update id="updateLightUpTheMember" parameterType="java.lang.Integer">
+		update dr_member set isMember = 1
+			where uid = #{uid}	
+	</update>
+</mapper>

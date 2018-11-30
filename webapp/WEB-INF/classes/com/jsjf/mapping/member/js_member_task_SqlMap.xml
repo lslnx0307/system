@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://www.mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.jsjf.dao.member.JsMemberTaskDAO">
+	
+	
+	<resultMap id="JsMemberTaskResult" type="com.jsjf.model.member.JsMemberTask">
+		<result column="id" property="id" jdbcType="INTEGER" />
+		<result column="name" property="name" jdbcType="VARCHAR" />
+		<result column="type" property="type" jdbcType="INTEGER" />
+		<result column="wealth" property="wealth" jdbcType="INTEGER" />
+		<result column="valid" property="valid" jdbcType="INTEGER" />
+		
+	</resultMap>
+	
+	<select id="selectObjectById" parameterType="Integer" resultMap="JsMemberTaskResult"> 
+		select id,name,type,wealth,valid from js_member_task where id = #{id}
+	
+	</select>
+	<select id="selectjsmembTasksList" parameterType="Map" resultMap="JsMemberTaskResult">
+		select t.id,t.name,t.type,t.wealth,t.valid
+			<if test="uid"> ,IFNULL((select d.type from js_task_details d 
+							where t.type !=3 and t.id=d.mtid and d.mid = #{uid} 
+							and IF(t.type =2, DATE_FORMAT(d.addDate,'%Y%m')=DATE_FORMAT(NOW(),'%Y%m'),1) limit 1),0) as isFinish</if>  
+		from js_member_task t
+		<where>
+			valid = 1
+			<if test="type != null"> and t.type = #{type}</if>
+			<if test="name != null and name !=''"> and name = #{name}</if>
+		</where>
+		<if test="orders != null"> ${orders} </if>
+	</select>
+	
+	<!-- 根据uid查询充值记录 -->
+	<select id="getCrushCount" resultType="java.lang.Integer">
+		select count(1) from dr_member_crush where uid = #{uid} and STATUS = 1
+	</select>
+	<!-- 根据推荐人uid查询推荐人数 -->
+	<select id="getRecommendedCountByUid" resultType="java.lang.Integer">
+		select count(1) from dr_member_recommended where referrerId = #{uid}
+	</select>
+	
+	<!-- 根据map查询除新手标、体验标以外标的数量 -->
+	<select id="getInvestCount" resultType="java.util.Map">
+		select count(1) as count,ifnull(sum(a.amount),0) as amount from dr_product_invest a
+			left join dr_product_info b on a.pid = b.id
+			where a.uid = #{uid} and b.type in(2,6) and a.status !=2
+			<if test="nowDate != null">
+				and DATE_FORMAT(a.investTime,'%Y-%m') = DATE_FORMAT(#{nowDate},'%Y-%m')
+			</if>
+			<if test="playingTime != null">
+				and DATE_FORMAT(a.investTime,'%Y-%m-%d') >= DATE_FORMAT(#{playingTime},'%Y-%m-%d')
+			</if>
+			<if test="amount != null">
+				and a.amount >= #{amount}
+			</if>
+			<if test="isJHS == 1">
+				and b.repayType = 1
+			</if>
+	</select>
+	
+	<select id="getRecommendedInvestCount" resultType="java.util.Map">
+		select count(DISTINCT(a.uid))as count,a.referrerId as rid from dr_member_recommended a
+			left join dr_product_invest b on a.uid = b. uid 
+			left join dr_product_info c on b.pid = c.id
+		where referrerId = (select referrerId from dr_member_recommended where uid =#{uid} )
+			and c.type in(2,6) and c.repayType = 1 and b.status !=2
+			and DATE_FORMAT(b.investTime,'%Y-%m') = DATE_FORMAT(SYSDATE(),'%Y-%m')
+			<if test="playingTime != null">
+				and DATE_FORMAT(b.investTime,'%Y-%m-%d') >= DATE_FORMAT(#{playingTime},'%Y-%m-%d')
+			</if>
+	</select>
+
+</mapper>

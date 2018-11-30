@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://www.mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.jsjf.dao.member.JsTaskDetailsDAO">
+	
+	<resultMap id="JsTaskDetailsResult" type="com.jsjf.model.member.JsTaskDetails">
+		<result column="id" property="id" jdbcType="INTEGER" />
+		<result column="mtid" property="mtid" jdbcType="INTEGER" />
+		<result column="addDate" property="addDate" jdbcType="TIMESTAMP" />
+		<result column="mid" property="mid" jdbcType="INTEGER" />
+		<result column="type" property="type" jdbcType="INTEGER" />
+		
+	</resultMap>
+	
+	<select id="selectObjectById" parameterType="Integer" resultMap="JsTaskDetailsResult">
+		select id ,mtid,addDate,mid,type from js_task_details where id = #{id}
+	</select>
+	
+	<insert id="insert" useGeneratedKeys="true" keyProperty="id">
+		INSERT INTO js_task_details 
+		(mtid, addDate, mid,type) 
+		VALUES (#{mtid}, sysdate(), #{mid}, #{type});
+	</insert>
+	
+	
+	<select id="getJstaskDetailByMap" resultType="com.jsjf.model.member.JsTaskDetails">
+		select * from js_task_details a
+			LEFT JOIN js_member_task b on a.mtid = b.id
+			<where>
+				<if test="uid != null">
+					and a.mid = #{uid} 
+				</if>
+				<if test="name != null and name !=''">
+					and b.name = #{name}
+				</if>
+				<if test="nowDate != null">
+					and DATE_FORMAT(a.addDate,'%Y-%m') = DATE_FORMAT(#{nowDate},'%Y-%m')
+				</if>
+			</where>
+	</select>
+</mapper>

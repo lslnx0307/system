@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://www.mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.jsjf.dao.activity.JChannelClearingDAO">
+		
+		<select id="getChannelClearingList" parameterType="java.util.Map" resultType="java.util.Map">
+			select jcc.id as id,jcc.channel_name as channelName,jcc.clearing_date as clearingDate,
+			jcc.first_amount_normal  as firstAmountNormal,
+			jcc.recharge_amount as rechargeAmount,jcc.seven_day as sevenDay,jcc.thirty_five_day as thirtyFiveDay,
+			jcc.sixty_day as sixtyDay,jcc.one_hundred_eighty_day as oneHundredEightyDay,jcc.roi,
+			jcc.roi_amount_normal as roiAmount,
+			jcc.balance_amount as balanceAmount,jcc.seventy_day as seventyDay,jcc.thirty_day as thirtyDay
+			 from js_channel_clearing jcc
+			<where>
+				<if test="channelName != null and channelName != ''">
+					and jcc.channel_id=#{channelName}
+				</if>
+				<if test="startClearingDate != null and startClearingDate != '' ">
+				 	and jcc.clearing_date >= #{startClearingDate} 
+				</if>
+				<if test="endClearingDate != null and endClearingDate != '' ">
+					 and #{endClearingDate}>=jcc.clearing_date
+				</if>
+			</where>
+			order by jcc.clearing_date asc,jcc.id asc
+			limit #{offset},#{limit}
+		</select>
+		
+		<select id="getChannelClearingListCount" resultType="java.lang.Integer" parameterType="java.util.Map">
+			select count(1) from js_channel_clearing jcc
+			<where>
+				<if test="channelName != null and channelName != ''">
+					and jcc.channel_id=#{channelName}
+				</if>
+				<if test="startClearingDate != null and startClearingDate != '' ">
+				 	and jcc.clearing_date >= #{startClearingDate} 
+				</if>
+				<if test="endClearingDate != null and endClearingDate != '' ">
+					 and #{endClearingDate}>=jcc.clearing_date
+				</if>
+			</where>
+			order by jcc.clearing_date asc
+		</select>
+		
+		<select id="getChannelClearingListSum" parameterType="java.util.Map" resultType="java.util.Map">
+			select '总计' as clearingDate,
+			IFNULL(sum(jcc.first_amount_normal),0) as firstAmountNormal,
+			IFNULL(sum(jcc.seven_day),0) as sevenDay,
+			IFNULL(sum(jcc.recharge_amount),0) as rechargeAmount,IFNULL(sum(jcc.thirty_five_day),0) as thirtyFiveDay,
+			IFNULL(sum(jcc.sixty_day),0) as sixtyDay,IFNULL(sum(jcc.one_hundred_eighty_day),0) as oneHundredEightyDay,
+			IFNULL(sum(jcc.roi_amount_normal),0) as roiAmount,
+			IFNULL(sum(jcc.seventy_day),0) as seventyDay,
+			IFNULL(sum(jcc.thirty_day),0) as thirtyDay
+			from js_channel_clearing jcc
+			<where>
+				<if test="channelName != null and channelName != ''">
+					and jcc.channel_id=#{channelName}
+				</if>
+				<if test="startClearingDate != null and startClearingDate != '' ">
+				 	and jcc.clearing_date >= #{startClearingDate} 
+				</if>
+				<if test="endClearingDate != null and endClearingDate != '' ">
+					 and #{endClearingDate}>=jcc.clearing_date
+				</if>
+			</where>
+			order by jcc.clearing_date asc
+		</select>
+</mapper>

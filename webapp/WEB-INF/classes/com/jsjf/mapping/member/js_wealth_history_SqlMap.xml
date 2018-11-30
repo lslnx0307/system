@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://www.mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.jsjf.dao.member.JsWealthHistoryDAO">
+	
+	<resultMap id="JsWealthHistoryResult" type="com.jsjf.model.member.JsWealthHistory">
+		<result column="id" property="id" jdbcType="INTEGER" />
+		<result column="name" property="name" jdbcType="INTEGER" />
+		<result column="wealth" property="wealth" jdbcType="INTEGER" />
+		<result column="addDate" property="addDate" jdbcType="TIMESTAMP" />
+		<result column="mid" property="mid" jdbcType="INTEGER" />
+		<result column="tdid" property="tdid" jdbcType="INTEGER" />
+		
+	</resultMap>
+
+
+
+	<select id="selectObjectById" parameterType="Integer" resultMap="JsWealthHistoryResult">
+		select id,name,wealth,addDate,mid,tdid from js_wealth_history where id = #{id}
+	</select>
+	<select id="selectObjectByTdid" parameterType="Integer" resultMap="JsWealthHistoryResult">
+		select id,name,wealth,addDate,mid,tdid from js_wealth_history where tdid = #{tdid} and type = #{type}
+	</select>
+	
+	<select id="selectObjectByMap" parameterType="Map" resultMap="JsWealthHistoryResult">
+		select id,name,wealth,addDate,mid,tdid from js_wealth_history 
+		<where>
+			<if test="mid !=null"> and  mid = #{mid}</if>
+			<if test="tdid !=null"> and  tdid = #{tdid}</if>
+			<if test="tdid !=null"> and  tdid = #{tdid}</if>
+		</where>
+	
+	</select>
+	
+	<select id="selectObjectCountByMap" parameterType="Map" resultMap="JsWealthHistoryResult">
+		select count(1) from js_wealth_history 
+		<where>
+			<if test="mid !=null"> and  mid = #{mid}</if>
+			<if test="tdid !=null"> and  tdid = #{tdid}</if>
+			<if test="tdid !=null"> and  tdid = #{tdid}</if>
+		</where>
+	</select>
+	
+	<select id="insert" parameterType="Map">
+		INSERT INTO js_wealth_history ( name, wealth, addDate, mid, tdid,type)
+ 		VALUES ( #{name}, #{wealth}, #{addDate}, #{mid}, #{tdid},#{type});
+	</select>
+	
+	<select id="selectWealthSum" resultType="Integer" parameterType="Integer">
+		SELECT IFNULL(SUM(wealth),0) from js_wealth_history where mid = #{uid};
+	</select>
+
+
+</mapper>

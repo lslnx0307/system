@@ -1,0 +1,274 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://www.mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.jsjf.dao.claims.JsBorrowingInformationDAO">
+	<resultMap type="com.jsjf.model.claims.JsBorrowingInformation" id="JsBorrowingInformationReuslt">
+			<result column="id" property="id" jdbcType="INTEGER"/>
+			<result column="loanNo" property="loanNo" jdbcType="VARCHAR"/>
+			<result column="amount" property="amount" jdbcType="DECIMAL"/>
+			<result column="birthday" property="birthday" jdbcType="VARCHAR"/>
+			<result column="borrowerName" property="borrowerName" jdbcType="VARCHAR"/>
+			<result column="borrowingTime" property="borrowingTime" jdbcType="VARCHAR"/>
+			<result column="function" property="function" jdbcType="VARCHAR"/>
+			<result column="idCardNo" property="idCardNo" jdbcType="VARCHAR"/>
+			<result column="period" property="period" jdbcType="INTEGER"/>
+			<result column="phoneNo" property="phoneNo" jdbcType="VARCHAR"/>
+			<result column="marriage" property="marriage" jdbcType="VARCHAR"/>
+			<result column="sex" property="sex" jdbcType="VARCHAR"/>
+			<result column="educationalBg" property="educationalBg" jdbcType="VARCHAR"/>
+			<result column="repayment_source" property="repayment_source" jdbcType="VARCHAR"/>
+			<result column="repayment_mode" property="repayment_mode" jdbcType="VARCHAR"/>
+			<result column="lid" property="lid" jdbcType="VARCHAR"/>
+			<result column="address" property="address" jdbcType="VARCHAR"/>
+			<result column="startDate" property="startDate" jdbcType="TIME"/>
+			<result column="endDate" property="endDate" jdbcType="TIME"/>
+			<result column="startAmount" property="startAmount" jdbcType="DECIMAL"/>
+			<result column="endAmount" property="endAmount" jdbcType="DECIMAL"/>
+			<result column="isRelevanceLoan" property="isRelevanceLoan" jdbcType="VARCHAR"/>
+			<result column="no" property="no" jdbcType="VARCHAR"/>
+	</resultMap>
+	<select id="selectBorrowingInformation" resultType="com.jsjf.model.claims.JsBorrowingInformation" parameterType="java.util.Map">
+		select * from js_borrowing_information
+		<where>
+			<if test="borrowingTime !=null">
+				and DATE_FORMAT(borrowingTime,'%Y-%m-%d')=#{borrowingTime}
+			</if>
+			<if test="endAmount !=null">
+				and #{endAmount}>=amount
+			</if>
+			<if test="period !=null">
+				and period=#{period}
+			</if>
+			<if test="type ==1"><!-- 未使用过的借款信息 -->
+				and lid is null
+			</if>
+			<if test="accountName !=null">
+				and accountName =#{accountName}
+			</if>
+			<if test="loanNo !=null">
+				and loanNo =#{loanNo}
+			</if>
+		</where>
+		order by amount desc
+	</select>
+	
+	<update id="updateBorrowingInformationLid" parameterType="java.util.Map">
+		update js_borrowing_information set lid=#{lid} where id=#{id}
+	</update>
+	<select id="getBorrowInformationList" resultType="java.util.Map" parameterType="java.util.Map">
+		SELECT jbi.*,dcl.no FROM js_borrowing_information jbi
+		LEFT JOIN dr_claims_loan dcl ON jbi.lid = dcl.id 
+		<where>
+			<if test="startDate != '' and startDate != null">
+				and DATE_FORMAT(jbi.borrowingTime,'%Y-%m-%d') >= DATE_FORMAT(#{startDate},'%Y-%m-%d')
+			</if>
+			<if test="endDate != '' and endDate != null">
+				and DATE_FORMAT(#{endDate},'%Y-%m-%d') >= DATE_FORMAT(jbi.borrowingTime,'%Y-%m-%d')
+			</if>
+			<if test="startAmount != '' and startAmount != null">
+				and jbi.amount >= #{startAmount}
+			</if>
+			<if test="endAmount != '' and endAmount != null">
+				and #{endAmount} >= jbi.amount  
+			</if>
+			<if test="isRelevanceLoan == 1">
+				  and dcl.borrowing_type =2
+			</if>
+			<if test="isRelevanceLoan == 2">
+				  and ((dcl.borrowing_type is null) or dcl.borrowing_type = 1)
+			</if>
+			<if test="no != '' and no != null">
+				  and dcl.no = #{no}
+			</if>
+			<if test="period != '' and period != null">
+				  and jbi.period = #{period}
+			</if>
+		</where>
+			ORDER BY jbi.borrowingTime DESC,jbi.period ASC
+			LIMIT #{offset},#{limit}
+	</select>
+	<select id="getBorrowInformationListCount" resultType="java.lang.Integer" parameterType="java.util.Map">
+		SELECT count(*) FROM js_borrowing_information jbi
+		LEFT JOIN dr_claims_loan dcl ON jbi.lid = dcl.id 
+		<where>
+			<if test="startDate != '' and startDate != null">
+				and DATE_FORMAT(jbi.borrowingTime,'%Y-%m-%d') >= DATE_FORMAT(#{startDate},'%Y-%m-%d')
+			</if>
+			<if test="endDate != '' and endDate != null">
+				and DATE_FORMAT(#{endDate},'%Y-%m-%d') >= DATE_FORMAT(jbi.borrowingTime,'%Y-%m-%d')
+			</if>
+			<if test="startAmount != '' and startAmount != null">
+				and jbi.amount >= #{startAmount}
+			</if>
+			<if test="endAmount != '' and endAmount != null">
+				and #{endAmount} >= jbi.amount  
+			</if>
+			<if test="isRelevanceLoan == 1">
+				  and dcl.borrowing_type =2
+			</if>
+			<if test="isRelevanceLoan == 2">
+				 and ((dcl.borrowing_type is null) or dcl.borrowing_type = 1)
+			</if>
+			<if test="no != '' and no != null">
+				  and dcl.no = #{no}
+			</if>
+			<if test="period != '' and period != null">
+				  and jbi.period = #{period}
+			</if>
+		</where>
+			ORDER BY jbi.borrowingTime DESC,jbi.period ASC
+	</select>
+	<select id="getBorrowInformationListCountAll" resultType="java.util.Map" parameterType="java.util.Map">
+		
+		SELECT "总计" as borrowingTime,sum(a.amount) amount from(
+		select jbi.amount as amount FROM js_borrowing_information jbi
+		LEFT JOIN dr_claims_loan dcl ON jbi.lid = dcl.id 
+		<where>
+			<if test="startDate != '' and startDate != null">
+				and DATE_FORMAT(jbi.borrowingTime,'%Y-%m-%d') >= DATE_FORMAT(#{startDate},'%Y-%m-%d')
+			</if>
+			<if test="endDate != '' and endDate != null">
+				and DATE_FORMAT(#{endDate},'%Y-%m-%d') >= DATE_FORMAT(jbi.borrowingTime,'%Y-%m-%d')
+			</if>
+			<if test="startAmount != '' and startAmount != null">
+				and jbi.amount >= #{startAmount}
+			</if>
+			<if test="endAmount != '' and endAmount != null">
+				and #{endAmount} >= jbi.amount  
+			</if>
+			<if test="isRelevanceLoan == 1">
+				  and dcl.borrowing_type =2
+			</if>
+			<if test="isRelevanceLoan == 2">
+				 and ((dcl.borrowing_type is null) or dcl.borrowing_type = 1)
+			</if>
+			<if test="no != '' and no != null">
+				  and dcl.no = #{no}
+			</if>
+			<if test="period != '' and period != null">
+				  and jbi.period = #{period}
+			</if>
+		</where>
+			ORDER BY jbi.borrowingTime DESC,jbi.period ASC ) a
+		
+	</select>
+		
+	<insert id="insert" parameterType="java.util.Map" keyProperty="id" useGeneratedKeys="true">
+		INSERT INTO `js_borrowing_information` (
+			`loanNo`,
+			`amount`,
+			`birthday`,
+			`borrowerName`,
+			`borrowingTime`,
+			`function`,
+			`idCardNo`,
+			`period`,
+			`phoneNo`,
+			`marriage`,
+			`sex`,
+			`educationalBg`,
+			`repayment_source`,
+			`repayment_mode`,
+			`lid`,
+			`address`,
+			`accountName`,
+			`age`,
+			`addDate`
+		)
+		VALUES
+			(
+				#{loanNo},
+				#{amount},
+				#{birthday},
+				#{borrowerName},
+				#{borrowingTime},
+				#{function},
+				#{idCardNo},
+				#{period},
+				#{phoneNo},
+				#{marriage},
+				#{sex},
+				#{educationalBg},
+				#{repayment_source},
+				#{repayment_mode},
+				#{lid},
+				#{address},
+				#{accountName},
+				#{age},
+				now()
+			);
+	</insert>
+	
+	<insert id="batchInsert" parameterType="java.util.List">
+		<foreach collection="list" item="item" separator=";" >
+			INSERT INTO `js_borrowing_information` (
+			`loanNo`,
+			`amount`,
+			`birthday`,
+			`borrowerName`,
+			`borrowingTime`,
+			`function`,
+			`idCardNo`,
+			`period`,
+			`phoneNo`,
+			`marriage`,
+			`sex`,
+			`educationalBg`,
+			`repayment_source`,
+			`repayment_mode`,
+			`lid`,
+			`address`,
+			`accountName`,
+			`age`,
+			`addDate`
+		)
+		VALUES
+			(
+			<!-- <choose>
+				<when test="item.loanNo != null">
+					#{item.loanNo},
+				</when>
+				<otherwise>
+					null
+				</otherwise>
+			</choose> -->
+				<if test="item.loanNo !=null">#{item.loanNo},</if>
+				<if test="item.loanNo ==null">null,</if>
+				<if test="item.amount !=null">#{item.amount},</if>
+				<if test="item.amount ==null">null,</if>
+				<if test="item.birthday !=null">#{item.birthday},</if>
+				<if test="item.birthday ==null">null,</if>
+				<if test="item.borrowerName !=null">#{item.borrowerName},</if>
+				<if test="item.borrowerName ==null">null,</if>
+				<if test="item.borrowingTime !=null">#{item.borrowingTime},</if>
+				<if test="item.borrowingTime ==null">null,</if>
+				<if test="item.function !=null">#{item.function},</if>
+				<if test="item.function ==null">null,</if>
+				<if test="item.idCardNo !=null">#{item.idCardNo},</if>
+				<if test="item.idCardNo ==null">null,</if>
+				<if test="item.period !=null">#{item.period},</if>
+				<if test="item.period ==null">null,</if>
+				<if test="item.phoneNo !=null">#{item.phoneNo},</if>
+				<if test="item.phoneNo ==null">null,</if>
+				<if test="item.marriage !=null">#{item.marriage},</if>
+				<if test="item.marriage ==null">null,</if>
+				<if test="item.sex !=null">#{item.sex},</if>
+				<if test="item.sex ==null">null,</if>
+				<if test="item.educationalBg !=null">#{item.educationalBg},</if>
+				<if test="item.educationalBg ==null">null,</if>
+				<if test="item.repayment_source !=null">#{item.repayment_source},</if>
+				<if test="item.repayment_source ==null">null,</if>
+				<if test="item.repayment_mode !=null">#{item.repayment_mode},</if>
+				<if test="item.repayment_mode ==null">null,</if>
+				<if test="item.lid !=null">#{item.lid},</if>
+				<if test="item.lid ==null">null,</if>
+				<if test="item.address !=null">#{item.address},</if>
+				<if test="item.address ==null">null,</if>
+				<if test="item.accountName !=null">#{item.accountName},</if>
+				<if test="item.accountName ==null">null,</if>
+				<if test="item.age !=null">#{item.age},</if>
+				<if test="item.age ==null">null,</if>
+				now()
+			)
+		</foreach>
+	</insert>
+</mapper>

@@ -1,0 +1,89 @@
+#创建理财金券表
+CREATE TABLE `ys_member_coupon` (
+  `id` int(10) NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `uid` int(10) DEFAULT NULL COMMENT '会员ID',
+  `type` int(10) DEFAULT NULL COMMENT '理财金券类型(1-理财金券)',
+  `amount` decimal(12,2) DEFAULT NULL COMMENT '理财金券面值',
+  `addTime` datetime DEFAULT NULL COMMENT '创建时间',
+  `deadline` datetime DEFAULT NULL COMMENT '过期时间',
+  `isUsed` int(10) DEFAULT NULL COMMENT '是否使用(0-未使用 1-已使用)',
+  `useTime` datetime DEFAULT NULL COMMENT '使用时间',
+  `remark` varchar(500) DEFAULT NULL COMMENT '备注',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB AUTO_INCREMENT=135 DEFAULT CHARSET=utf8;
+
+#初始化理财金券历史数据
+insert into ys_member_coupon (uid,type,amount,addTime,isUsed)
+select uid,1,1000,regdate,0 from ys_member where uid not in (
+select uid from ys_member_coupon 
+)
+#2016-09-28
+#dr_member 增加字段    tid  
+alter table dr_member add tid char(255) DEFAULT NULL COMMENT '易瑞特传过来的ID';
+
+## 2016-10-11 ##
+## 按月付息产品回款明细信息
+
+CREATE TABLE `dr_product_info_repay_detail` (
+  `id` int(10) NOT NULL AUTO_INCREMENT COMMENT '明细ID',
+  `pid` int(10) NOT NULL COMMENT '产品ID',
+  `periods` tinyint(4) DEFAULT NULL COMMENT '期数',
+  `status` tinyint(4) DEFAULT '1' COMMENT '还款状态，1-未还款，2-已还款，3-逾期',
+  `shouldTime` datetime DEFAULT NULL COMMENT '还款日期',
+  `addDate` datetime DEFAULT NULL COMMENT '创建时间',
+  `updDate` datetime DEFAULT NULL COMMENT '更新时间',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='按月付息产品回款明细信息';
+
+
+## 还款表加 产品回款明细信息的ID
+alter table dr_product_invest_repayinfo add pdId int(10) DEFAULT NULL COMMENT '产品回款明细信息的ID';
+
+#2016-10-17
+ALTER TABLE dr_carry_param ADD COLUMN smsChanel INT DEFAULT 1 COMMENT '短信通道，1-希奥，2-企信通';
+INSERT INTO sys_chooseoption(category, cnvalue, code, sortno, valid) VALUES('smsChanel','希奥',1,1,1);
+INSERT INTO sys_chooseoption(category, cnvalue, code, sortno, valid) VALUES('smsChanel','企信通',2,2,1);
+
+#2016-10-18
+#产品表增加活动ID
+ALTER TABLE dr_product_info ADD COLUMN atid int(20) COMMENT '活动ID';
+#活动模板表
+CREATE TABLE `js_activity_template` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT COMMENT '主键',
+  `name` varchar(255) NOT NULL COMMENT '活动名称',
+  `createTime` datetime DEFAULT NULL,
+  `codeFixation` varchar(255) NOT NULL COMMENT '抽奖编码-固定',
+  `digit` int(11) NOT NULL COMMENT '位数',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='活动模板表';
+#活动奖品明细表
+CREATE TABLE `js_activity_prize` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `atid` int(10) NOT NULL,
+  `name` varchar(255) NOT NULL COMMENT '奖品名称',
+  `amount` int(11) NOT NULL COMMENT '奖品数量',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='活动奖品明细表';
+#活动产品关联表
+CREATE TABLE `js_activity_product` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `atid` int(10) NOT NULL COMMENT '活动ID',
+  `pid` int(10) NOT NULL COMMENT '产品ID',
+  `prizeCode` varchar(255) DEFAULT NULL COMMENT '中奖号码',
+  `status` int(11) NOT NULL DEFAULT '1' COMMENT '活动状态，1-进行中，2-待开奖，3-已完成',
+  `prizeImgUrl` varchar(255) DEFAULT NULL COMMENT '抽奖照片',
+  `nper` int(20) DEFAULT NULL COMMENT '期数',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='活动产品关联表';
+#用户活动投资记录关联表
+CREATE TABLE `js_activity_product_invest_info` (
+  `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
+  `piid` int(11) NOT NULL COMMENT '投资记录ID',
+  `luckCodes` varchar(1000) DEFAULT NULL COMMENT '投资幸运号码，多个幸运码以引文逗号分隔',
+  `prizeStatus` int(11) NOT NULL DEFAULT '0' COMMENT '是否中奖，0-待开奖，1-未中奖，2-已中奖',
+  `isUplod` int(11) NOT NULL DEFAULT '0' COMMENT '是否上传中奖人信息，0-否，1-是',
+  `prizeMobile` varchar(255) DEFAULT NULL COMMENT '中奖人号码',
+  `prizeImgUrl` varchar(255) DEFAULT NULL COMMENT '中奖人照片',
+  `prizeContent` varchar(1000) DEFAULT NULL COMMENT '中奖人介绍',
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8 COMMENT='用户活动投资记录关联表，用于存储中奖的投资记录，及维护中奖人的信息';

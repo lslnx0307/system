@@ -1,0 +1,539 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://www.mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.jsjf.dao.member.DrWinCallLogDAO">
+	<select id="selWincallLog" parameterType="java.util.HashMap" resultType="java.util.HashMap">
+		select dw.id as id ,concat(substring(dw.moblie,1,3),"***",substring(dw.moblie,8)) as moblie,dw.title as title , date_format(dw.calldate,'%Y-%m-%d %H:%i:%s') as calldate,
+		case when dw.name='' then dw.name else concat(substring(dw.name,1,1),"**") end as name,dw.remerk as remerk,date_format(dw.createdate,'%Y-%m-%d %H:%i:%s') as createdate,su.name as username,
+		dw.type,sc.cnvalue,date_format(dw.appointDate,'%Y-%m-%d %H:%i:%s') as appointDate,date_format(dw.cancelDate,'%Y-%m-%d %H:%i:%s') as cancelDate,
+		sus.name as cancelUserName
+		from dr_wincall_log dw 
+		left join sys_users su on su.user_ky=dw.user_ky
+   		left join sys_chooseoption sc on sc.code=dw.type and sc.category='wincallType'
+		left join sys_users sus on sus.user_ky=dw.cancel_user_ky
+		left join dr_member dm on dm.mobilePhone=dw.moblie
+		<where>
+			<if test="moblie !=null and moblie !='' ">
+				and dw.moblie = #{moblie}
+			</if>
+			<if test="recommCodes !=null and recommCodes !='' ">
+				and dm.recommCodes = #{recommCodes}
+			</if>		
+		</where>
+		order by dw.calldate desc
+		limit #{offset},#{limit}
+	</select>
+	
+	<select id="selWincallLogCount" parameterType="java.util.HashMap" resultType="int">
+		select count(*) from dr_wincall_log dw 
+		left join sys_users su on su.user_ky=dw.user_ky 
+		left join dr_member dm on dm.mobilePhone=dw.moblie
+		<where>
+			<if test="moblie !=null and moblie !='' ">
+				and dw.moblie = #{moblie}
+			</if>
+			<if test="recommCodes !=null and recommCodes !='' ">
+				and dm.recommCodes = #{recommCodes}
+			</if>		
+		</where>
+	</select>
+	
+	<insert id="insert" parameterType="java.util.HashMap"
+		keyProperty="id" useGeneratedKeys="true">
+		insert into dr_wincall_log (
+		moblie,
+		title,
+		calldate,
+		name,
+		remerk,
+		createdate,
+		user_ky,
+		type,
+		appointDate
+		)
+		values
+		(
+		#{moblie,jdbcType=VARCHAR},
+		#{title,jdbcType=VARCHAR},
+		#{calldate,jdbcType=VARCHAR},
+		#{name,jdbcType=VARCHAR},
+		#{remerk,jdbcType=VARCHAR},
+		SYSDATE(),
+		#{userKy,jdbcType=INTEGER},
+		#{type,jdbcType=INTEGER},
+		#{appointDate}
+		)
+	</insert>
+	
+	<update id="update" parameterType="java.util.HashMap">
+		update dr_wincall_log set cancelDate=now(),cancel_user_ky=#{userKy} where id=#{id}
+	</update>
+	
+	<!-- 电销业绩核算 -->
+	<select id="salesCallsAchievement" parameterType="java.util.HashMap" resultType="java.util.HashMap">
+	select u.dept_id as 'dept',u.name as 'name',u.user_ky as userKy,
+		
+		IFNULL(shoutou.`sc30`,0) as sc30,IFNULL(shoutou.`sc35`,0) as sc35, IFNULL(shoutou.`sc45`,0) as sc45, IFNULL(shoutou.`sc60`,0) as sc60,IFNULL(shoutou.`sc70`,0) as sc70, IFNULL(shoutou.`sc75`,0) as sc75,
+		IFNULL(shoutou.`sc90`,0) as sc90, IFNULL(shoutou.`sc150`,0) as sc150, IFNULL(shoutou.`sc180`,0) as sc180, 
+		IFNULL(shoutou.`sc30`+shoutou.`sc35`+shoutou.`sc45`+shoutou.`sc60`+shoutou.`sc70`+shoutou.`sc75`+shoutou.`sc90`+shoutou.`sc150`+shoutou.`sc180`,0)  as 'schz', 
+
+		IFNULL(shoutou.`s30`,0) as s30,IFNULL(shoutou.`s35`,0) as s35, IFNULL(shoutou.`s45`,0) as s45, IFNULL(shoutou.`s60`,0) as s60, IFNULL(shoutou.`s70`,0) as s70, IFNULL(shoutou.`s75`,0) as s75,
+		IFNULL(shoutou.`s90`,0) as s90, IFNULL(shoutou.`s150`,0) as s150, IFNULL(shoutou.`s180`,0) as s180, 
+		IFNULL(shoutou.`s30`+shoutou.`s35`+shoutou.`s45`+shoutou.`s60`+shoutou.`s70`+shoutou.`s75`+shoutou.`s90`+shoutou.`s150`+shoutou.`s180`,0) as 'shz',
+
+		IFNULL(futou.`f30`,0) as f30,IFNULL(futou.`f35`,0) as f35, IFNULL(futou.`f45`,0) as f45, IFNULL(futou.`f60`,0) as f60,IFNULL(futou.`f70`,0) as f70, IFNULL(futou.`f75`,0) as f75, IFNULL(futou.`f90`,0) as f90,
+		IFNULL(futou.`f150`,0) as f150, IFNULL(futou.`f180`,0) as f180, 
+		IFNULL(futou.`f30`+	futou.`f35`+futou.`f45`+futou.`f60`+futou.`f70`+futou.`f75`+futou.`f90`+futou.`f150`+futou.`f180`,0) as 'fhz', 
+
+		IFNULL(shoutou.`sc30`+shoutou.`sc35`+shoutou.`sc45`+shoutou.`sc60`+shoutou.`sc70`+shoutou.`sc75`+shoutou.`sc90`+shoutou.`sc150`+shoutou.`sc180`,0)
+		+IFNULL(shoutou.`s30`+shoutou.`s35`+shoutou.`s45`+shoutou.`s60`+shoutou.`s70`+shoutou.`s75`+shoutou.`s90`+shoutou.`s150`+shoutou.`s180`,0)
+		+IFNULL(futou.`f30`+futou.`f35`+futou.`f45`+futou.`f60`+futou.`f70`+futou.`f75`+futou.`f90`+futou.`f150`+futou.`f180` ,0) as total,
+		IFNULL(bk.`realverifys`,0)  as 'realverifys' 
+		from sys_users u 
+		LEFT JOIN 		
+		(
+			SELECT ifnull(a.userKy ,'') userKy,
+			sum(if(a.deadline=30 and a.type =1 ,a.amount,0)) as 'sc30',
+			sum(if(a.deadline=30 and a.type =0 ,a.amount,0)) as 's30',
+			sum(if(a.deadline=35 and a.type =1 ,a.amount,0)) as 'sc35',
+			sum(if(a.deadline=35 and a.type =0 ,a.amount,0)) as 's35',
+			sum(if(a.deadline=45 and a.type =1 ,a.amount,0)) as 'sc45',
+			sum(if(a.deadline=45 and a.type =0 ,a.amount,0)) as 's45',
+			sum(if(a.deadline=60 and a.type =1 ,a.amount,0)) as 'sc60',
+			sum(if(a.deadline=60 and a.type =0 ,a.amount,0)) as 's60',
+			sum(if(a.deadline=70 and a.type =1 ,a.amount,0)) as 'sc70',
+			sum(if(a.deadline=70 and a.type =0 ,a.amount,0)) as 's70',
+			sum(if(a.deadline=75 and a.type =1 ,a.amount,0)) as 'sc75',
+			sum(if(a.deadline=75 and a.type =0 ,a.amount,0)) as 's75',
+			sum(if(a.deadline=90 and a.type =1 ,a.amount,0)) as 'sc90',
+			sum(if(a.deadline=90 and a.type =0 ,a.amount,0)) as 's90',
+			sum(if(a.deadline=150 and a.type =1 ,a.amount,0)) as 'sc150',
+			sum(if(a.deadline=150 and a.type =0 ,a.amount,0)) as 's150',
+			sum(if(a.deadline=180 and a.type =1 ,a.amount,0)) as 'sc180',
+			sum(if(a.deadline=180 and a.type =0 ,a.amount,0)) as 's180'
+			from (
+				select
+				st.stid,m.mobilePhone,ci.type,pi.amount ,p.deadline,ca.userKy,pi.investTime,m.regdate,max(wlog.calldate)
+				from (SELECT invest.uid,MIN(invest.id) AS stid FROM dr_product_invest invest LEFT JOIN dr_product_info product ON product.id = invest.pid LEFT JOIN dr_member mem ON invest.uid = mem.uid WHERE product.deadline >=30 AND invest.`status` != 2 AND invest.uid NOT in (SELECT uid FROM dr_member_recommended WHERE referrerId IS NOT NULL) AND mem.mobilePhone NOT in (SELECT phone FROM js_company) GROUP BY invest.uid) st
+				left join dr_product_invest pi on st.stid = pi.id and DATE_FORMAT(pi.investTime,'%Y%m') = #{startDate} <if test="nowDate !=null and nowDate !='' ">and #{nowDate} >DATE_FORMAT(pi.investTime,'%Y%m%d')</if>
+				left join dr_member m ON m.uid = st.uid 
+				left join dr_channel_info ci on INSTR(m.toFrom,ci.`code`)=1
+				left join dr_product_info p on pi.pid = p.id
+				left join dr_customerAllot ca on m.uid = ca.uid
+				left join sys_users u on ca.userKy = u.user_ky
+				left join lgq_calllog wlog on wlog.mobilephone = m.mobilePhone    
+				where  u.user_ky is not null
+				<if test="dept != null and dept !=''">
+							and u.dept_id = #{dept}
+				</if> 
+				and date_format(date_add(wlog.calldate,interval 14 day),'%Y%m%d') >= date_format(pi.investTime,'%Y%m%d')
+				and date_format(pi.investTime,'%Y%m%d%H%i') >= date_format(wlog.calldate,'%Y%m%d%H%i')
+				and  DATE_FORMAT(pi.investTime,'%Y%m%d') > DATE_FORMAT(DATE_ADD(m.regdate,INTERVAL 4 DAY),'%Y%m%d')
+				group BY st.stid )a 
+				 group by a.userKy 
+		) shoutou ON u.user_ky = shoutou.userKy		
+		LEFT JOIN 
+			(
+				select ifnull(a.userKy ,'') userKy ,
+				sum(if(a.deadline=30,a.amount,0)) as 'f30',
+				sum(if(a.deadline=35,a.amount,0)) as 'f35',
+				sum(if(a.deadline=45,a.amount,0)) as 'f45',
+				sum(if(a.deadline=60,a.amount,0)) as 'f60',
+				sum(if(a.deadline=70,a.amount,0)) as 'f70',
+				sum(if(a.deadline=75,a.amount,0)) as 'f75',
+				sum(if(a.deadline=90,a.amount,0)) as 'f90',
+				sum(if(a.deadline=150,a.amount,0)) as 'f150',
+				sum(if(a.deadline=180,a.amount,0)) as 'f180'
+					from 
+					(	select pi.id,m.uid,m.mobilePhone as '用户手机号',m.regdate as '注册日期',DATE_ADD(m.regdate,INTERVAL 2 DAY),pi.id as '投资序列号',pi.investTime as '投资时间',
+							pi.amount ,p.deadline ,max(wlog.calldate) as '最近沟通时间',ca.userKy
+							from dr_product_invest pi
+							left join dr_member m ON m.uid = pi.uid 
+							left join dr_product_info p on pi.pid = p.id
+							left join dr_customerAllot ca on m.uid = ca.uid
+							left join sys_users u on ca.userKy = u.user_ky
+							left join lgq_calllog wlog on wlog.mobilephone = m.mobilePhone  
+							where pi.`status` != 2  
+							<if test="dept != null and dept !=''">
+								and u.dept_id = #{dept}
+							</if>
+							and DATE_FORMAT(pi.investTime,'%Y%m')=#{startDate}  <if test="nowDate !=null and nowDate !='' ">and #{nowDate} >DATE_FORMAT(pi.investTime,'%Y%m%d')</if>
+							and date_format(date_add(wlog.calldate,interval 14 day),'%Y%m%d') >= date_format(pi.investTime,'%Y%m%d')
+							and date_format(pi.investTime,'%Y%m%d%H%i') >= date_format(wlog.calldate,'%Y%m%d%H%i')
+							and p.deadline>15
+							and u.`name` is not null
+							AND m.mobilePhone NOT in (SELECT phone FROM js_company)
+							and NOT EXISTS(
+							 select 1 from (SELECT invest.uid,MIN(invest.id) AS stid FROM dr_product_invest invest LEFT JOIN dr_product_info product ON product.id = invest.pid LEFT JOIN dr_member mem ON invest.uid = mem.uid WHERE product.deadline >=30 AND invest.`status` != 2  GROUP BY invest.uid) st where pi.id = st.stid
+							)group BY pi.id) a
+						group by a.userKy 
+				)futou on u.user_ky  = futou.userKy		
+		LEFT JOIN (
+				 select  a.userKy,count(DISTINCT mem.uid) as 'realverifys',mem.allot as '部门'
+				from dr_member mem
+				left join lgq_calllog wlog on wlog.mobilephone = mem.mobilePhone
+				INNER JOIN dr_customerAllot a on mem.uid = a.uid
+				left join sys_users u on u.user_ky = a.userKy
+				where 
+					 isFuiou=1 and realverify=0
+					<if test="dept != null and dept !=''">
+								and u.dept_id = #{dept}
+					</if>
+				 and LEFT(mchnt_txn_ssn,6)=#{startDate}  
+				 and date_format(date_add(wlog.calldate,interval 14 day),'%Y%m%d') >= LEFT(mchnt_txn_ssn,8)
+				 and LEFT(mchnt_txn_ssn,12) >= date_format(wlog.calldate,'%Y%m%d%H%i')
+				group by a.userKy
+		
+				) bk on u.user_ky =bk.userKy
+			where bk.userKy or shoutou.userKy or futou.userKy
+		order by total DESC
+		<if test="offset !=null and limit != null">
+			limit #{offset},#{limit}
+		</if>	
+	</select>
+	<select id="salesCallsAchievementCount" resultType="int" parameterType="java.util.HashMap">
+		select count(1) from sys_users where status = 1 and dept_id in (1,2)	
+	</select>
+	
+		<!-- 电销业绩核算 -->
+	<select id="exportSalesAchievement" parameterType="java.util.HashMap" resultType="java.util.HashMap">
+	SELECT if(u.dept_id=1,'电销一部',if(u.dept_id=2,'电销二部',""))as dept,ifnull(u.name,"总计") as name,hj.*  from (
+		SELECT  
+			 IFNULL(ex.userKy,"总计") as userKy, 
+			 sum(ex.sc30) as sc30,sum(ex.sc35) as sc35, sum(ex.sc45) as sc45,sum(ex.sc60) as sc60,sum(ex.sc70) as sc70, sum(ex.sc75) as sc75, sum(ex.sc90) as sc90,
+			 sum(ex.sc150) as sc150,sum(ex.sc180) as sc180, sum(ex.schz) as schz,
+			 
+			 sum(ex.s30) as s30,sum(ex.s35) as s35, sum(ex.s45) as s45, sum(ex.s60) as s60,
+			 sum(ex.s70) as s70,sum(ex.s75) as s75, sum(ex.s90) as s90, sum(ex.s150) as s150, sum(ex.s180) as s180, sum(ex.shz) as shz,
+			 
+			 sum(ex.f30) as f30,sum(ex.f35) as f35,sum(ex.f45) as f45, sum(ex.f60) as f60, sum(ex.f70) as f70,sum(ex.f75) as f75, sum(ex.f90) as f90,
+			 sum(ex.f150) as f150, sum(ex.f180) as f180,sum(ex.fhz) as fhz,
+			 
+			 sum(ex.total) as total, sum(ex.realverifys) as realverifys
+		from (
+		select u.user_ky as userKy,
+			
+			IFNULL(shoutou.`sc30`,0) as sc30,IFNULL(shoutou.`sc35`,0) as sc35, IFNULL(shoutou.`sc45`,0) as sc45, IFNULL(shoutou.`sc60`,0) as sc60,IFNULL(shoutou.`sc70`,0) as sc70, IFNULL(shoutou.`sc75`,0) as sc75,
+			IFNULL(shoutou.`sc90`,0) as sc90, IFNULL(shoutou.`sc150`,0) as sc150, IFNULL(shoutou.`sc180`,0) as sc180, 
+			IFNULL(shoutou.`sc30`+shoutou.`sc35`+shoutou.`sc45`+shoutou.`sc60`+shoutou.`sc70`+shoutou.`sc75`+shoutou.`sc90`+shoutou.`sc150`+shoutou.`sc180`,0)  as 'schz', 
+	
+			IFNULL(shoutou.`s30`,0) as s30,IFNULL(shoutou.`s35`,0) as s35, IFNULL(shoutou.`s45`,0) as s45, IFNULL(shoutou.`s60`,0) as s60, IFNULL(shoutou.`s70`,0) as s70, IFNULL(shoutou.`s75`,0) as s75,
+			IFNULL(shoutou.`s90`,0) as s90, IFNULL(shoutou.`s150`,0) as s150, IFNULL(shoutou.`s180`,0) as s180, 
+			IFNULL(shoutou.`s30`+shoutou.`s35`+shoutou.`s45`+shoutou.`s60`+shoutou.`s70`+shoutou.`s75`+shoutou.`s90`+shoutou.`s150`+shoutou.`s180`,0) as 'shz',
+	
+			IFNULL(futou.`f30`,0) as f30,IFNULL(futou.`f35`,0) as f35, IFNULL(futou.`f45`,0) as f45, IFNULL(futou.`f60`,0) as f60,IFNULL(futou.`f70`,0) as f70, IFNULL(futou.`f75`,0) as f75, IFNULL(futou.`f90`,0) as f90,
+			IFNULL(futou.`f150`,0) as f150, IFNULL(futou.`f180`,0) as f180, 
+			IFNULL(futou.`f30`+	futou.`f35`+futou.`f45`+futou.`f60`+futou.`f70`+futou.`f75`+futou.`f90`+futou.`f150`+futou.`f180`,0) as 'fhz', 
+	
+			IFNULL(shoutou.`sc30`+shoutou.`sc35`+shoutou.`sc45`+shoutou.`sc60`+shoutou.`sc70`+shoutou.`sc75`+shoutou.`sc90`+shoutou.`sc150`+shoutou.`sc180`,0)
+			+IFNULL(shoutou.`s30`+shoutou.`s35`+shoutou.`s45`+shoutou.`s60`+shoutou.`s70`+shoutou.`s75`+shoutou.`s90`+shoutou.`s150`+shoutou.`s180`,0)
+			+IFNULL(futou.`f30`+futou.`f35`+futou.`f45`+futou.`f60`+futou.`f70`+futou.`f75`+futou.`f90`+futou.`f150`+futou.`f180` ,0) as total,
+			IFNULL(bk.`realverifys`,0)  as 'realverifys' 
+			from sys_users u
+				LEFT JOIN 			
+			(
+				SELECT ifnull(a.userKy ,'') userKy,
+				sum(if(a.deadline=30 and a.type =1 ,a.amount,0)) as 'sc30',
+				sum(if(a.deadline=30 and a.type =0 ,a.amount,0)) as 's30',
+				sum(if(a.deadline=35 and a.type =1 ,a.amount,0)) as 'sc35',
+				sum(if(a.deadline=35 and a.type =0 ,a.amount,0)) as 's35',
+				sum(if(a.deadline=45 and a.type =1 ,a.amount,0)) as 'sc45',
+				sum(if(a.deadline=45 and a.type =0 ,a.amount,0)) as 's45',
+				sum(if(a.deadline=60 and a.type =1 ,a.amount,0)) as 'sc60',
+				sum(if(a.deadline=60 and a.type =0 ,a.amount,0)) as 's60',
+				sum(if(a.deadline=70 and a.type =1 ,a.amount,0)) as 'sc70',
+				sum(if(a.deadline=70 and a.type =0 ,a.amount,0)) as 's70',
+				sum(if(a.deadline=75 and a.type =1 ,a.amount,0)) as 'sc75',
+				sum(if(a.deadline=75 and a.type =0 ,a.amount,0)) as 's75',
+				sum(if(a.deadline=90 and a.type =1 ,a.amount,0)) as 'sc90',
+				sum(if(a.deadline=90 and a.type =0 ,a.amount,0)) as 's90',
+				sum(if(a.deadline=150 and a.type =1 ,a.amount,0)) as 'sc150',
+				sum(if(a.deadline=150 and a.type =0 ,a.amount,0)) as 's150',
+				sum(if(a.deadline=180 and a.type =1 ,a.amount,0)) as 'sc180',
+				sum(if(a.deadline=180 and a.type =0 ,a.amount,0)) as 's180'
+				from 
+				(
+					select
+					st.stid,m.mobilePhone,ci.type,pi.amount ,p.deadline,ca.userKy,pi.investTime,m.regdate,max(wlog.calldate)
+					from (SELECT invest.uid,MIN(invest.id) AS stid FROM dr_product_invest invest LEFT JOIN dr_product_info product ON product.id = invest.pid LEFT JOIN dr_member mem ON invest.uid = mem.uid WHERE product.deadline >=30 AND invest.`status` != 2 AND invest.uid NOT in (SELECT uid FROM dr_member_recommended WHERE referrerId IS NOT NULL) AND mem.mobilePhone NOT in (SELECT phone FROM js_company) GROUP BY invest.uid) st
+					left join dr_product_invest pi on st.stid = pi.id and DATE_FORMAT(pi.investTime,'%Y%m') = #{startDate} <if test="nowDate !=null and nowDate !='' ">and #{nowDate} >DATE_FORMAT(pi.investTime,'%Y%m%d')</if>
+					left join dr_member m ON m.uid = st.uid 
+					left join dr_channel_info ci on INSTR(m.toFrom,ci.`code`)=1
+					left join dr_product_info p on pi.pid = p.id
+					left join dr_customerAllot ca on m.uid = ca.uid
+					left join sys_users u on ca.userKy = u.user_ky
+					left join lgq_calllog wlog on wlog.mobilephone = m.mobilePhone    
+					where  u.user_ky is not null
+					<if test="dept != null and dept !=''">
+								and u.dept_id = #{dept}
+					</if> 
+					and date_format(date_add(wlog.calldate,interval 14 day),'%Y%m%d') >= date_format(pi.investTime,'%Y%m%d')
+					and date_format(pi.investTime,'%Y%m%d%H%i') >= date_format(wlog.calldate,'%Y%m%d%H%i')
+					and  DATE_FORMAT(pi.investTime,'%Y%m%d') > DATE_FORMAT(DATE_ADD(m.regdate,INTERVAL 4 DAY),'%Y%m%d')
+					group BY st.stid )a 
+					 group by a.userKy 
+			) shoutou on u.user_ky = shoutou.userKy			
+			LEFT JOIN
+				(
+					select ifnull(a.userKy ,'') userKy ,
+					sum(if(a.deadline=30,a.amount,0)) as 'f30',
+					sum(if(a.deadline=35,a.amount,0)) as 'f35',
+					sum(if(a.deadline=45,a.amount,0)) as 'f45',
+					sum(if(a.deadline=60,a.amount,0)) as 'f60',
+					sum(if(a.deadline=70,a.amount,0)) as 'f70',
+					sum(if(a.deadline=75,a.amount,0)) as 'f75',
+					sum(if(a.deadline=90,a.amount,0)) as 'f90',
+					sum(if(a.deadline=150,a.amount,0)) as 'f150',
+					sum(if(a.deadline=180,a.amount,0)) as 'f180'
+						from 
+						(	select pi.id,m.uid,m.mobilePhone as '用户手机号',m.regdate as '注册日期',DATE_ADD(m.regdate,INTERVAL 2 DAY),pi.id as '投资序列号',pi.investTime as '投资时间',
+								pi.amount ,p.deadline ,max(wlog.calldate) as '最近沟通时间',ca.userKy
+								from dr_product_invest pi
+								left join dr_member m ON m.uid = pi.uid 
+								left join dr_product_info p on pi.pid = p.id
+								left join dr_customerAllot ca on m.uid = ca.uid
+								left join sys_users u on ca.userKy = u.user_ky
+								left join lgq_calllog wlog on wlog.mobilephone = m.mobilePhone  
+								where pi.`status` != 2  
+								<if test="dept != null and dept !=''">
+									and u.dept_id = #{dept}
+								</if>
+								and DATE_FORMAT(pi.investTime,'%Y%m')=#{startDate}  <if test="nowDate !=null and nowDate !='' ">and #{nowDate} >DATE_FORMAT(pi.investTime,'%Y%m%d')</if>
+								and date_format(date_add(wlog.calldate,interval 14 day),'%Y%m%d') >= date_format(pi.investTime,'%Y%m%d')
+								and date_format(pi.investTime,'%Y%m%d%H%i') >= date_format(wlog.calldate,'%Y%m%d%H%i')
+								and p.deadline>15
+								and u.`name` is not null
+								AND m.mobilePhone NOT in (SELECT phone FROM js_company)
+								and NOT EXISTS(
+								 select 1 from (SELECT invest.uid,MIN(invest.id) AS stid FROM dr_product_invest invest LEFT JOIN dr_product_info product ON product.id = invest.pid LEFT JOIN dr_member mem ON invest.uid = mem.uid WHERE product.deadline >=30 AND invest.`status` != 2  GROUP BY invest.uid) st where pi.id = st.stid
+								<!-- AND m.mobilePhone NOT in (SELECT phone FROM js_company) -->
+								)group BY pi.id) a
+							group by a.userKy 
+					)futou on u.user_ky = futou.userKy			
+			LEFT JOIN (
+					 select  a.userKy,count(DISTINCT mem.uid) as 'realverifys',mem.allot as '部门'
+					from dr_member mem
+					left join lgq_calllog wlog on wlog.mobilephone = mem.mobilePhone
+					INNER JOIN dr_customerAllot a on mem.uid = a.uid
+					left join sys_users u on u.user_ky = a.userKy
+					where 
+						 isFuiou=1 and realverify=0
+						<if test="dept != null and dept !=''">
+									and u.dept_id = #{dept}
+						</if>
+					 and LEFT(mchnt_txn_ssn,6)=#{startDate}  
+					 and date_format(date_add(wlog.calldate,interval 14 day),'%Y%m%d') >= LEFT(mchnt_txn_ssn,8)
+					 and LEFT(mchnt_txn_ssn,12) >= date_format(wlog.calldate,'%Y%m%d%H%i')
+					group by a.userKy
+			
+					) bk on u.user_ky=bk.userKy
+			where bk.userKy or futou.userKy or shoutou.userKy
+		) ex GROUP BY ex.userKy WITH ROLLUP
+	) hj left join sys_users u on hj.userKy=u.user_ky
+		order by   FIELD(hj.userKy,'总计'),hj.total DESC
+	</select>
+	
+	<select id="getFirShotInfoList" resultType="java.util.Map">
+		select 
+			m.allot as allot,
+			st.stid as stid,
+			m.recommCodes as recommCodes,
+			m.uid as uid,
+			CONCAT(left(m.mobilePhone,3),'****',RIGHT(m.mobilePhone,4)) as mobilePhone,
+			CASE ci.type when 0 then '非CPS' when 1 then 'CPS' ELSE '' end as type,
+			pi.amount AS amount,
+			p.deadline as deadline,
+			pi.investTime as investTime,
+			m.regdate as regdate,
+			max(wlog.calldate) as calldate,
+			u.`name` as name
+		from
+		 (SELECT invest.uid,MIN(invest.id) AS stid FROM dr_product_invest invest LEFT JOIN dr_product_info product ON product.id = invest.pid LEFT JOIN dr_member mem ON invest.uid = mem.uid WHERE product.deadline >=30 AND invest.`status` != 2 AND invest.uid NOT in (SELECT uid FROM dr_member_recommended WHERE referrerId IS NOT NULL) AND mem.mobilePhone NOT in (SELECT phone FROM js_company) GROUP BY invest.uid) st
+		 left join dr_product_invest pi on st.stid = pi.id 
+		 left join dr_member m ON m.uid = st.uid 
+		 left join dr_channel_info ci on INSTR(m.toFrom,ci.`code`)=1
+		 left join dr_product_info p on pi.pid = p.id
+		 left join dr_customerAllot ca on m.uid = ca.uid and DATE_FORMAT(pi.investTime,'%Y%m')=#{startDate} <if test="nowDate !=null and nowDate !='' "><![CDATA[ and DATE_FORMAT(pi.investTime,'%Y%m%d')< #{nowDate}]]></if>
+		 left join sys_users u on ca.userKy = u.user_ky
+		 left join lgq_calllog wlog on wlog.mobilephone = m.mobilePhone   
+		where 
+		<![CDATA[ date_format(pi.investTime,'%Y%m%d') <= date_format(date_add(wlog.calldate,interval 14 day),'%Y%m%d') ]]>
+		<![CDATA[ and date_format(wlog.calldate,'%Y%m%d%H%i') <= date_format(pi.investTime,'%Y%m%d%H%i') ]]>
+		<![CDATA[ and DATE_FORMAT(DATE_ADD(m.regdate,INTERVAL 4 DAY),'%Y%m%d') < DATE_FORMAT(pi.investTime,'%Y%m%d') ]]>
+		 and u.`name` is not null
+		 <if test="userKy != null">
+		 	and u.user_ky = #{userKy}
+		 </if>
+		 <if test="isCps != null">
+			and ci.type = #{isCps}
+		 </if>
+		 group BY st.stid
+		 <if test="offset != null">
+		 	limit #{offset},#{limit}
+		 </if>
+	</select>
+	
+	<select id="getFirShotInfoCount" resultType="java.lang.Integer">
+		SELECT count(1) from (
+		select 
+			m.allot as allot,
+			st.stid as stid,
+			m.recommCodes as recommCodes,
+			m.uid as uid,
+			CONCAT(left(m.mobilePhone,3),'****',RIGHT(m.mobilePhone,4)) as mobilePhone,
+			CASE ci.type when 0 then '非CPS' when 1 then 'CPS' ELSE '' end as type,
+			pi.amount AS amount,
+			p.deadline as deadline,
+			pi.investTime as investTime,
+			m.regdate as regdate,
+			max(wlog.calldate) as calldate,
+			u.`name` as name
+		from
+		 (SELECT invest.uid,MIN(invest.id) AS stid FROM dr_product_invest invest LEFT JOIN dr_product_info product ON product.id = invest.pid LEFT JOIN dr_member mem ON invest.uid = mem.uid WHERE product.deadline >=30 AND invest.`status` != 2 AND invest.uid NOT in (SELECT uid FROM dr_member_recommended WHERE referrerId IS NOT NULL) AND mem.mobilePhone NOT in (SELECT phone FROM js_company) GROUP BY invest.uid) st
+		 left join dr_product_invest pi on st.stid = pi.id and DATE_FORMAT(pi.investTime,'%Y%m')=#{startDate} <if test="nowDate !=null and nowDate !='' "><![CDATA[ and DATE_FORMAT(pi.investTime,'%Y%m%d')< #{nowDate}]]></if>
+		 left join dr_member m ON m.uid = st.uid 
+		 left join dr_channel_info ci on INSTR(m.toFrom,ci.`code`)=1
+		 left join dr_product_info p on pi.pid = p.id
+		 left join dr_customerAllot ca on m.uid = ca.uid
+		 left join sys_users u on ca.userKy = u.user_ky
+		 left join lgq_calllog wlog on wlog.mobilephone = m.mobilePhone   
+		where 	u.`name` is not null 
+		<if test="dept != null and dept !=''"> and u.dept_id = #{dept} </if>
+		<![CDATA[ and date_format(pi.investTime,'%Y%m%d') <= date_format(date_add(wlog.calldate,interval 14 day),'%Y%m%d') ]]>
+		<![CDATA[ and date_format(wlog.calldate,'%Y%m%d%H%i') <= date_format(pi.investTime,'%Y%m%d%H%i') ]]>
+		<![CDATA[ and DATE_FORMAT(DATE_ADD(m.regdate,INTERVAL 4 DAY),'%Y%m%d') < DATE_FORMAT(pi.investTime,'%Y%m%d') ]]>
+		
+		 <if test="userKy != null">
+		 	and u.user_ky = #{userKy}
+		 </if>
+		 <if test="isCps != null">
+			and ci.type = #{isCps}
+		 </if>
+		 group BY st.stid 
+		 ) t
+	</select>
+	
+	<select id="getDoubleShotInfoList" resultType="java.util.Map">
+		select 
+			m.allot AS allot,
+			pi.id as id,
+			m.recommCodes as recommCodes,
+			m.uid as uid,
+			CONCAT(left(m.mobilePhone,3),'****',RIGHT(m.mobilePhone,4)) as mobilePhone,
+			m.regdate as regdate,
+			pi.investTime as investTime,
+			pi.amount as amount,
+			p.deadline as deadline,
+			max(wlog.calldate) as calldate,
+			u.`name` as name
+			from dr_product_invest pi
+			left join dr_member m ON m.uid = pi.uid 
+			left join dr_product_info p on pi.pid = p.id
+			left join dr_customerAllot ca on m.uid = ca.uid
+			left join sys_users u on ca.userKy = u.user_ky
+			left join lgq_calllog wlog on wlog.mobilephone = m.mobilePhone  
+			where pi.`status`!= 2  
+			<if test="dept != null and dept !=''"> and u.dept_id = #{dept} </if>
+			<![CDATA[ and DATE_FORMAT(pi.investTime,'%Y%m')=#{startDate} ]]>
+			<if test="nowDate !=null and nowDate !='' "><![CDATA[ and DATE_FORMAT(pi.investTime,'%Y%m%d') < #{nowDate} ]]></if>
+			<![CDATA[ and date_format(pi.investTime,'%Y%m%d')<=date_format(date_add(wlog.calldate,interval 14 day),'%Y%m%d')  ]]>
+			<![CDATA[ and date_format(wlog.calldate,'%Y%m%d%H%i')<=date_format(pi.investTime,'%Y%m%d%H%i') ]]>
+			and p.deadline>15
+			and u.`name` is not null
+			AND m.mobilePhone NOT in (SELECT phone FROM js_company)
+			and NOT EXISTS(
+			 select 1 from (SELECT invest.uid,MIN(invest.id) AS stid FROM dr_product_invest invest LEFT JOIN dr_product_info product ON product.id = invest.pid LEFT JOIN dr_member mem ON invest.uid = mem.uid WHERE product.deadline >=30 AND invest.`status` != 2  GROUP BY invest.uid) st where pi.id = st.stid
+			)
+			<if test="userKy != null">
+				and u.user_ky = #{userKy}
+			</if>
+			group BY pi.id 
+			order by m.allot asc,u.`name`,pi.id asc
+			<if test="offset != null">
+		 		limit #{offset},#{limit}
+		 	</if>
+	</select>
+	
+	<select id="getDoubleShotInfoCount" resultType="java.lang.Integer">
+		select count(1) from(
+		select 
+			m.allot AS allot,
+			pi.id as id,
+			m.recommCodes as recommCodes,
+			m.uid as uid,
+			CONCAT(left(m.mobilePhone,3),'****',RIGHT(m.mobilePhone,4)) as mobilePhone,
+			m.regdate as regdate,
+			pi.investTime as investTime,
+			pi.amount as amount,
+			p.deadline as deadline,
+			max(wlog.calldate) as calldate,
+			u.`name` as name
+			from dr_product_invest pi
+			left join dr_member m ON m.uid = pi.uid 
+			left join dr_product_info p on pi.pid = p.id
+			left join dr_customerAllot ca on m.uid = ca.uid
+			left join sys_users u on ca.userKy = u.user_ky
+			left join lgq_calllog wlog on wlog.mobilephone = m.mobilePhone  
+			<![CDATA[ where pi.`status`<>2   ]]>
+			<![CDATA[ and DATE_FORMAT(pi.investTime,'%Y%m')=#{startDate} ]]>
+			<if test="nowDate !=null and nowDate !='' "><![CDATA[ and DATE_FORMAT(pi.investTime,'%Y%m%d') < #{nowDate} ]]></if>
+			<![CDATA[ and date_format(pi.investTime,'%Y%m%d')<=date_format(date_add(wlog.calldate,interval 14 day),'%Y%m%d')  ]]>
+			<![CDATA[ and date_format(wlog.calldate,'%Y%m%d%H%i')<=date_format(pi.investTime,'%Y%m%d%H%i') ]]>
+			and p.deadline>15
+			and u.`name` is not null
+			AND m.mobilePhone NOT in (SELECT phone FROM js_company)
+			and NOT EXISTS(
+			 select 1 from (SELECT invest.uid,MIN(invest.id) AS stid FROM dr_product_invest invest LEFT JOIN dr_product_info product ON product.id = invest.pid LEFT JOIN dr_member mem ON invest.uid = mem.uid WHERE product.deadline >=30 AND invest.`status` != 2 GROUP BY invest.uid) st where pi.id = st.stid
+			)
+			<if test="userKy != null">
+				and u.user_ky = #{userKy}
+			</if>
+			group BY pi.id 
+			order by m.allot asc,u.`name`,pi.id asc
+			) t
+	</select>
+	
+	<select id="getTiedCard" resultType="java.util.Map">
+		select 
+			mem.allot as allot,
+			mem.recommCodes as recommCodes,
+			mem.uid as uid,
+			CONCAT(left(mem.mobilePhone,3),'****',RIGHT(mem.mobilePhone,4)) as mobilePhone,
+			mem.regdate as regdate,
+			LEFT(mchnt_txn_ssn,14) as mchnt_txn_ssn,
+			max(wlog.calldate)as calldate,
+			u.`name` as name 
+			from dr_member mem
+			left join lgq_calllog wlog on wlog.mobilephone = mem.mobilePhone
+			INNER JOIN dr_customerAllot a on mem.uid = a.uid
+			left join sys_users u on u.user_ky = a.userKy
+			where LEFT(mchnt_txn_ssn,6)=#{startDate} and isFuiou=1 and realverify=0 
+			<if test="dept != null and dept !=''"> and u.dept_id = #{dept} </if>
+			<![CDATA[ and LEFT(mchnt_txn_ssn,8)<=date_format(date_add(wlog.calldate,interval 14 day),'%Y%m%d') ]]>
+			 <![CDATA[ and date_format(wlog.calldate,'%Y%m%d%H%i')<=LEFT(mchnt_txn_ssn,12)]]>
+			 <if test="userKy != null"> and u.user_ky = #{userKy}</if>
+		group by mem.uid
+	</select>
+	
+	<select id="getTiedCardCount" resultType="java.lang.Integer">
+		select count(1) from (
+		select 
+			mem.allot as allot,
+			mem.recommCodes as recommCodes,
+			mem.uid as uid,
+			CONCAT(left(mem.mobilePhone,3),'****',RIGHT(mem.mobilePhone,4)) as mobilePhone,
+			mem.regdate as regdate,
+			LEFT(mchnt_txn_ssn,14) as mchnt_txn_ssn,
+			max(wlog.calldate)as calldate,
+			u.`name` as name 
+			from dr_member mem
+			left join lgq_calllog wlog on wlog.mobilephone = mem.mobilePhone
+			INNER JOIN dr_customerAllot a on mem.uid = a.uid
+			left join sys_users u on u.user_ky = a.userKy
+			where LEFT(mchnt_txn_ssn,6)=#{startDate} and isFuiou=1 and realverify=0 
+			<![CDATA[ and LEFT(mchnt_txn_ssn,8)<=date_format(date_add(wlog.calldate,interval 14 day),'%Y%m%d') ]]>
+			 <![CDATA[ and date_format(wlog.calldate,'%Y%m%d%H%i')<=LEFT(mchnt_txn_ssn,12)]]>
+			 <if test="userKy != null"> and u.user_ky = #{userKy}</if>
+		group by mem.uid ) t
+	</select>
+	
+</mapper>

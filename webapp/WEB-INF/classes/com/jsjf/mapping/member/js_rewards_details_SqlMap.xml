@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://www.mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.jsjf.dao.member.JsRewardsDetailsDAO">
+	
+	<select id="selectJsRewardsDetailsByMap" resultType="java.util.HashMap">
+			select jrd.*,
+				jmr.`name`,
+				jmr.apid,
+				jmr.mgid,
+				jmr.type,
+				jmr.quantity,
+				jmr.amount,
+				jmr.way 
+			from js_rewards_details jrd
+			LEFT JOIN js_member_rewards jmr on jrd.mrid = jmr.id and jmr.valid = 1
+			<where>
+				<if test="mrid != null">
+					and jrd.mrid = #{mrid} 
+				</if>
+				<if test="mid != null">
+					and jrd.mid = #{mid}
+				</if>
+				<if test="type != null">
+					and jmr.type = #{type}
+				</if>
+				<if test="addDate == 1">
+					and (jrd.addDate is null or jrd.addDate = '')
+				</if>
+				<if test="detailId != null">
+					and jrd.id = #{detailId}
+				</if>
+				<if test="startTime != null">
+					and jrd.addDate >= #{startTime}
+				</if>
+				<if test="endTime != null">
+					and #{endTime} >= jrd.addDate
+				</if>
+			</where>
+	</select>
+	<update id="update" parameterType="com.jsjf.model.member.JsRewardsDetails">
+		UPDATE `js_rewards_details` 
+			<set>
+				<if test="mrid != null and mrid != ''">
+					`mrid`=#{mrid}, 
+				</if>
+				<if test="addDate != null">
+					`addDate`=#{addDate:TIMESTAMP}, 
+				</if>
+				<if test="mid != null">
+					`mid`=#{mid}
+				</if>
+			</set>
+			WHERE (`id`=#{id});
+	</update>
+	<insert id="insert" useGeneratedKeys="true" keyProperty="id">
+		INSERT INTO `js_rewards_details` (`mrid`,`mid`,`addDate`) 
+		VALUES (#{mrid},#{mid},#{addDate});
+	</insert>
+</mapper>

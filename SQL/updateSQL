@@ -1,0 +1,26 @@
+##2016-03-16 Gerald  添加优惠来源
+ALTER TABLE `dr_member_favourable`
+ADD COLUMN `source`  integer(4) NULL DEFAULT 0 AFTER `status`;
+
+##2016-03-16 Gerald 此渠道注册用户是否参与推荐首投返利活动
+ALTER TABLE `dr_channel_info`
+ADD COLUMN `isParticipation`  tinyint(4) NULL DEFAULT 0 COMMENT '是否参与推荐首投返利' AFTER `name`;
+
+###2016-05-06   
+ALTER TABLE `dr_activity_parameter`
+ADD COLUMN `multiple`  decimal(4,2) NULL DEFAULT 1 COMMENT '倍数' AFTER `raisedRates`,
+ADD COLUMN `productDeadline`  int(4) NULL DEFAULT 1 COMMENT '产品期限' AFTER `deadline`;
+
+
+
+ALTER TABLE `dr_member_favourable`
+ADD COLUMN `multiple`  decimal(4,2) NULL DEFAULT 1 COMMENT '倍数' AFTER `raisedRates`,
+ADD COLUMN `productDeadline`  int(4) NULL DEFAULT 1 COMMENT '产品期限' AFTER `multiple`;
+
+
+
+ALTER TABLE `dr_product_info`
+ADD COLUMN `isDouble`  tinyint(4) NULL DEFAULT 0 COMMENT '可否加倍' AFTER `mappingStatus`,
+ADD COLUMN `establish`  datetime NULL COMMENT '成立时间' AFTER `isDouble`,
+ADD COLUMN `accept`  varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL COMMENT '承兑机构' AFTER `establish`,
+ADD COLUMN `acceptPic`  varchar(255) CHARACTER SET utf8 COLLATE utf8_general_ci NULL DEFAULT NULL COMMENT '承兑图片' AFTER `accept`;

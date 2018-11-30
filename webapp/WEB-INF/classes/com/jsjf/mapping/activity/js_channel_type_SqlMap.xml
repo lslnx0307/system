@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://www.mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.jsjf.dao.activity.JsChannelTypeDAO">
+		
+		<select id="getChannelTypeList" parameterType="java.util.Map" resultType="java.util.Map">
+			select * from js_channel_type
+			<where>
+				<if test="name != null and name !='' ">
+					and name=#{name}
+				</if>
+			</where>
+			limit #{offset},#{limit}
+		</select>
+		
+		<select id="getChannelTypeCount" parameterType="java.util.Map" resultType="java.lang.Integer">
+			select count(1) from js_channel_type
+			<where>
+				<if test="name != null and name !='' ">
+					and name=#{name}
+				</if>
+			</where>
+		</select>
+		
+		<insert id="insertChannelType" parameterType="com.jsjf.model.activity.JsChannelType">
+			insert into js_channel_type(name,type,roi)
+			values(#{name},#{type},#{roi})
+		</insert>
+		
+		<update id="updateChannelType" parameterType="com.jsjf.model.activity.JsChannelType">
+			update js_channel_type 
+			<set>
+				<if test="name != null and name !='' ">
+					name=#{name},
+				</if>
+				<if test="roi != null">
+					roi=#{roi},
+				</if>
+				<if test="type != null">
+					type=#{type},
+				</if>
+			</set>
+			where id=#{id}
+		</update>
+</mapper>

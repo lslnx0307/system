@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://www.mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.jsjf.dao.activity.DrActivityDAO">
+	
+	<!--周年庆 -->
+	<select id="selectJsAnniversaryShares" resultType="com.jsjf.model.activity.JsAnniversaryShare" parameterType="java.util.HashMap">
+		SELECT id,uid,amount,addtime,investId,investAmount,mobile,status
+ 				from js_anniversary_share
+ 		<where>
+ 				<if test="uid !=null">and uid = #{uid}</if>
+				<if test="status !=null">and status = #{status}</if>
+				<if test="id !=null">and id = #{id}</if>
+ 		</where>
+ 		<if test="orders"> ORDER BY ${orders} </if>
+ 		<if test="offset != null and limit != null">
+ 			limit #{offset},#{limit}
+ 		</if>
+	</select>
+	<update id="updateJsAnniversaryShares" parameterType="com.jsjf.model.activity.JsAnniversaryShare">
+		update js_anniversary_share set status = 1 where id = #{id}
+	</update>
+	<select id="selectByName" parameterType="java.lang.String" resultType="java.util.Map">
+		SELECT * FROM dr_activity WHERE activityName = #{activityName};
+	</select>
+	
+	<select id="anniversaryInvestTop" parameterType="java.util.HashMap" resultType="java.util.HashMap">
+		SELECT CONVERT(@rownum:=@rownum+1 , CHAR) AS rownum,a.uid,a.mobilePhone,a.amount,a.investTime from (
+		SELECT dpi.uid,CONCAT(LEFT(dm.mobilePhone,3),'****',RIGHT(dm.mobilePhone,4)) as mobilePhone,TRUNCATE(SUM(dpi.amount*dp.deadline/360),2) as amount,dpi.investTime as investTime from dr_product_invest dpi
+		LEFT JOIN dr_product_info dp ON dpi.pid = dp.id 
+		LEFT JOIN dr_member dm ON dm.uid = dpi.uid
+		where  dp.type !=5 and #{endDate} > dpi.investTime AND dpi.investTime >#{startDate} 
+		<if test="isProduct == 1"> and dp.type != 6 and dp.type !=3 and dp.atid is null and dp.prizeId is null and productMarking is null</if>
+		GROUP BY dpi.uid
+		)as a ,(SELECT @rownum:=0)as r ORDER BY a.amount desc,a.investTime
+	
+	</select>
+	
+</mapper>
